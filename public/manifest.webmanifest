@@ -1,0 +1,17 @@
+{
+  "name": "GO! 홈프로텍터",
+  "short_name": "홈프로텍터",
+  "description": "현실의 집을 돌보면 게임 속 집이 좋아지고 캐릭터가 성장해요",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffe9ef",
+  "theme_color": "#ffe9ef",
+  "lang": "ko",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
