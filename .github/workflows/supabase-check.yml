@@ -1,0 +1,28 @@
+# Supabase 자동 백업 연결 확인 (Actions 탭에서 수동 실행)
+# - 백업 함수가 있는지(backup.sql 실행 여부), 두 공개 키가 통하는지, 테이블이 잠겨 있는지 확인한다.
+# - 데이터는 만들거나 바꾸지 않는다 (없는 코드로 불러오기만 시도).
+name: Supabase 연결 확인
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 공개 키로 백업 함수 호출
+        run: |
+          FILE=src/core/cloudBackup.ts
+          URL=$(grep -oE "https://[a-z0-9]+\.supabase\.co" $FILE | head -1)
+          PK=$(grep -oE "sb_publishable_[A-Za-z0-9_-]+" $FILE | head -1)
+          JWT=$(grep -oE "eyJ[A-Za-z0-9_.-]+" $FILE | head -1)
+          Z=00000000-0000-0000-0000-000000000000
+          call() { curl -s -o /tmp/out -w "%{http_code}" -X POST "$URL/rest/v1/rpc/homeprotector_load_backup" "$@" -H "Content-Type: application/json" -d "{\"p_key\":\"$Z\"}"; }
+          echo "project: $URL"
+          echo "publishable 키 (apikey 헤더)     → HTTP $(call -H "apikey: $PK") $(cat /tmp/out)"
+          echo "anon JWT 키 (apikey + Bearer)    → HTTP $(call -H "apikey: $JWT" -H "Authorization: Bearer $JWT") $(cat /tmp/out)"
+          echo "테이블 직접 읽기 (막혀야 정상)     → HTTP $(curl -s -o /tmp/out -w "%{http_code}" "$URL/rest/v1/homeprotector_backups?select=backup_key&limit=1" -H "apikey: $PK") $(cat /tmp/out)"
