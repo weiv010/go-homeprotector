@@ -1401,3 +1401,157 @@ h2 {
   margin-bottom: 6px;
   font-size: 14px;
 }
+
+/* ── 타이머 ── */
+.timer-dial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 12px 0 14px;
+}
+.timer-colon {
+  font-size: 34px;
+  font-weight: 700;
+  padding-bottom: 18px;
+}
+.stepper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.step-btn {
+  width: 64px;
+  padding: 4px 0;
+  font-size: 14px;
+  background: var(--panel-2);
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+}
+.step-btn:active {
+  transform: translateY(1px);
+}
+.step-value {
+  width: 76px;
+  text-align: center;
+  font-family: inherit;
+  font-size: 34px;
+  font-weight: 700;
+  color: var(--ink);
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 8px;
+  padding: 2px 0;
+}
+.step-label {
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+.center-chips {
+  justify-content: center;
+  margin-bottom: 6px;
+}
+.room-quest-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+}
+.room-quest-main:disabled {
+  cursor: default;
+}
+.room-quest.timer-running {
+  background: #eef4fb;
+}
+.room-quest.timer-done {
+  background: #fff4d6;
+  animation: soft-pulse 1s steps(2) infinite;
+}
+@keyframes soft-pulse {
+  50% {
+    box-shadow: 0 0 0 3px var(--yellow);
+  }
+}
+.timer-line {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.timer-count {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--blue);
+  font-variant-numeric: tabular-nums;
+}
+.timer-done .timer-count {
+  color: #b2561a;
+}
+.timer-bar {
+  display: block;
+  height: 6px;
+  border: 1px solid var(--ink);
+  border-radius: 3px;
+  background: #fff;
+  overflow: hidden;
+}
+.timer-bar span {
+  display: block;
+  height: 100%;
+  background: repeating-linear-gradient(90deg, var(--sky) 0 4px, #7fbbe6 4px 6px);
+  transition: width 1s linear;
+}
+.timer-done .timer-bar span {
+  background: var(--yellow);
+}
+.timer-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.btn.glow {
+  animation: soft-pulse 0.8s steps(2) infinite;
+}
+.room-timer {
+  position: absolute;
+  bottom: calc(100% + 3px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--blue);
+  border: 2px solid var(--ink);
+  border-radius: 5px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.room-timer.done {
+  color: var(--ink);
+  background: var(--yellow);
+  animation: timer-bounce 0.5s steps(2) infinite alternate;
+}
+@keyframes timer-bounce {
+  to {
+    transform: translate(-50%, -3px);
+  }
+}
+.map-wrap.overview .room-timer {
+  font-size: 9px;
+  border-width: 1px;
+}
+.quest-status.timer {
+  background: #dbe9f7;
+  color: var(--blue);
+  font-variant-numeric: tabular-nums;
+}
+.quest-status.timer.ready {
+  background: var(--yellow);
+  color: var(--ink);
+}

@@ -3,6 +3,7 @@ import { applyAction, createInitialData, plannedIds } from './game';
 import { levelFor } from './progression';
 import { questCleanLevel, questStatus, todaysQuests } from './quests';
 import { migrate } from './storage';
+import { formatRemaining, remainingMs } from './timers';
 import type { Quest } from './types';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -134,6 +135,30 @@ describe('오늘 하기', () => {
     let data = applyAction(createInitialData(T0), { type: 'planToday', id: 'yoga' }, T0).data;
     data = applyAction(data, { type: 'deleteQuest', id: 'yoga' }, T0).data;
     expect(plannedIds(data, T0)).toEqual([]);
+  });
+});
+
+describe('퀘스트 타이머', () => {
+  it('타이머 시작 → 공간·시간 저장, 다음 기본값 기억 / 완료하면 타이머가 사라진다', () => {
+    let data = createInitialData(T0);
+    data = applyAction(data, { type: 'startTimer', id: 'dishwashing', minutes: 75, at: T0 }, T0).data;
+    expect(data.timers).toEqual([{ questId: 'dishwashing', location: 'kitchen', startedAt: T0, durationMs: 75 * 60_000 }]);
+    expect(data.quests.find((q) => q.id === 'dishwashing')!.timerMinutes).toBe(75);
+    expect(remainingMs(data.timers[0], T0 + 60 * 60_000)).toBe(15 * 60_000);
+    expect(formatRemaining(remainingMs(data.timers[0], T0 + 1000))).toBe('1:14:59');
+    data = applyAction(data, { type: 'completeQuest', id: 'dishwashing' }, T0).data;
+    expect(data.timers).toEqual([]);
+  });
+
+  it('취소 / 0분은 시작 안 됨 / 같은 퀘스트는 다시 시작하면 교체', () => {
+    let data = createInitialData(T0);
+    expect(applyAction(data, { type: 'startTimer', id: 'yoga', minutes: 0, at: T0 }, T0).data.timers).toEqual([]);
+    data = applyAction(data, { type: 'startTimer', id: 'yoga', minutes: 10, at: T0 }, T0).data;
+    data = applyAction(data, { type: 'startTimer', id: 'yoga', minutes: 20, at: T0 + 5 }, T0).data;
+    expect(data.timers).toHaveLength(1);
+    expect(data.timers[0].durationMs).toBe(20 * 60_000);
+    data = applyAction(data, { type: 'cancelTimer', id: 'yoga' }, T0).data;
+    expect(data.timers).toEqual([]);
   });
 });
 

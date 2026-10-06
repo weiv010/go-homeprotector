@@ -33,7 +33,9 @@ npm run preview    # 빌드 결과 미리보기
 게임에서 공간(또는 퀘스트) 선택 → 캐릭터가 걸어감
 → "📱 주방의 NFC 태그를 찍어주세요"
 → 현실의 주방에서 NFC 태그 → 📱 NFC DETECTED! 🏃💨💨 (빠르게 달려감)
-→ 🍽️ 오늘의 주방 퀘스트 → 완료! → QUEST COMPLETE! +10 XP ✨ HOME CLEAN!
+→ 🍽️ 오늘의 주방 퀘스트 → 할 일 누르기 → ⏳ 타이머 (몇 시간 몇 분) 시작
+→ 다른 화면에 가도 맵의 주방 위에 ⏳ 남은 시간 표시 → ⏰ TIME UP!
+→ 주방 다시 누르기(태그 없이 바로) → 완료! → QUEST COMPLETE! +10 XP ✨ HOME CLEAN!
 → XP 가 쌓이면 LEVEL UP! / 타이틀 상승
 ```
 

@@ -9,6 +9,9 @@ import { RecordScreen } from './components/RecordScreen';
 import { RoomSheet } from './components/RoomSheet';
 import { SettingsScreen } from './components/SettingsScreen';
 import { Splash } from './components/Splash';
+import { TimerSetup } from './components/TimerSetup';
+import { isFinished } from './core/timers';
+import { useNow } from './useNow';
 import { TopBar } from './components/TopBar';
 import type { GameAction } from './core/game';
 import type { GameEvent, Quest } from './core/types';
@@ -45,6 +48,7 @@ export default function App() {
   const [phase, setPhase] = useState<Phase>('idle');
   const [selected, setSelected] = useState<string | null>(null);
   const [form, setForm] = useState<{ quest: Quest | null; location?: string } | null>(null);
+  const [timerFor, setTimerFor] = useState<Quest | null>(null);
   const [queue, setQueue] = useState<{ id: number; item: Celebration }[]>([]);
   const nextId = useRef(1);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -87,9 +91,10 @@ export default function App() {
     setPhase('walking');
     const arrived = await gameRef.current?.walkTo(locationId, 'walk');
     if (!arrived) return;
-    // NFC 태그가 없는 공간(화장실·거실)은 도착하자마자 퀘스트 창을 연다
+    // NFC 태그가 없는 공간(화장실·거실)이나 타이머가 돌고 있는 공간은 도착하자마자 퀘스트 창을 연다
     const hasTag = !!dataRef.current.locations.find((l) => l.id === locationId)?.nfcId;
-    setPhase(hasTag ? 'awaitTag' : 'room');
+    const hasTimer = dataRef.current.timers.some((t) => t.location === locationId);
+    setPhase(hasTag && !hasTimer ? 'awaitTag' : 'room');
   }, []);
 
   const handleRoomTap = (locationId: string) => {
@@ -147,6 +152,38 @@ export default function App() {
     pushEvents(events);
   };
 
+  // ── 타이머 ──
+  const startTimer = (q: Quest, minutes: number) => {
+    act({ type: 'startTimer', id: q.id, minutes, at: Date.now() });
+    setTimerFor(null);
+    toast(`⏳ ${q.title} 타이머 시작!`);
+  };
+
+  // 타이머가 끝나면 한 번 알려준다 (앱을 다시 열었을 때 이미 끝나 있던 것은 조용히 '완료' 표시만)
+  const clock = useNow(data.timers.length > 0);
+  const alerted = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    const key = (t: { questId: string; startedAt: number }) => `${t.questId}@${t.startedAt}`;
+    if (!alerted.current) {
+      alerted.current = new Set(data.timers.filter((t) => isFinished(t, Date.now())).map(key));
+      return;
+    }
+    for (const t of data.timers) {
+      if (!isFinished(t, clock) || alerted.current.has(key(t))) continue;
+      alerted.current.add(key(t));
+      const q = data.quests.find((x) => x.id === t.questId);
+      const loc = data.locations.find((l) => l.id === t.location);
+      if (!q) continue;
+      setQueue((qq) => [...qq, wrap({ type: 'timeUp', questTitle: q.title, icon: q.icon, locationName: loc?.name ?? '' })]);
+      try {
+        navigator.vibrate?.([200, 100, 200]);
+      } catch {
+        /* noop */
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clock, data.timers]);
+
   const closeRoom = () => {
     setPhase('idle');
     setSelected(null);
@@ -194,6 +231,8 @@ export default function App() {
               location={selectedLoc}
               level={cleanLevels[selectedLoc.id] ?? 0}
               onComplete={completeQuest}
+              onOpenTimer={(q) => setTimerFor(q)}
+              onCancelTimer={(q) => act({ type: 'cancelTimer', id: q.id })}
               onAdd={() => setForm({ quest: null, location: selectedLoc.id })}
               onClose={closeRoom}
             />
@@ -254,6 +293,18 @@ export default function App() {
                 }
               : undefined
           }
+        />
+      )}
+
+      {timerFor && (
+        <TimerSetup
+          quest={timerFor}
+          onClose={() => setTimerFor(null)}
+          onStart={(m) => startTimer(timerFor, m)}
+          onCompleteNow={() => {
+            completeQuest(timerFor);
+            setTimerFor(null);
+          }}
         />
       )}
 

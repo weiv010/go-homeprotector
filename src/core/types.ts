@@ -123,9 +123,19 @@ export interface Quest {
   affectsHome: boolean;
   createdAt: number;
   lastCompletedAt: number | null;
+  /** 마지막으로 맞춘 타이머 시간(분). 다음에 타이머를 켤 때 기본값으로 쓴다 */
+  timerMinutes?: number;
 }
 
-export type QuestDraft = Omit<Quest, 'id' | 'createdAt' | 'lastCompletedAt'>;
+/** 진행 중인 퀘스트 타이머. 실제 시계 기준이라 앱을 닫아도 계속 흐른다 */
+export interface QuestTimer {
+  questId: string;
+  location: LocationId;
+  startedAt: number;
+  durationMs: number;
+}
+
+export type QuestDraft = Omit<Quest, 'id' | 'createdAt' | 'lastCompletedAt' | 'timerMinutes'>;
 
 export type ItemSlot = 'hat' | 'hair' | 'outfit' | 'bag' | 'extra';
 
@@ -169,6 +179,7 @@ export interface GameData {
   diary: Record<string, DiaryEntry>;
   /** 오늘 하기로 고른 퀘스트. 날짜가 바뀌면 비어 있는 새 하루로 시작한다 */
   todayPlan: { date: string; questIds: string[] };
+  timers: QuestTimer[];
   /** 테스트용 시간 여행 (일 단위). 실제 사용 시 0 */
   debugDayOffset: number;
 }

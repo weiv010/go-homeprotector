@@ -23,6 +23,7 @@ export function createInitialData(now: number): GameData {
     history: [],
     diary: {},
     todayPlan: { date: '', questIds: [] },
+    timers: [],
     debugDayOffset: 0,
   };
 }
@@ -33,6 +34,8 @@ export type GameAction =
   | { type: 'deleteQuest'; id: string }
   | { type: 'completeQuest'; id: string }
   | { type: 'planToday'; id: string }
+  | { type: 'startTimer'; id: string; minutes: number; at: number }
+  | { type: 'cancelTimer'; id: string }
   | { type: 'unplanToday'; id: string }
   | { type: 'saveDiary'; text: string }
   | { type: 'buyItem'; itemId: string }
@@ -85,10 +88,28 @@ export function applyAction(data: GameData, action: GameAction, now: number): Ac
         data: {
           ...data,
           quests: data.quests.filter((q) => q.id !== action.id),
+          timers: data.timers.filter((t) => t.questId !== action.id),
           todayPlan: { ...data.todayPlan, questIds: data.todayPlan.questIds.filter((id) => id !== action.id) },
         },
         events: [],
       };
+
+    case 'startTimer': {
+      const quest = data.quests.find((q) => q.id === action.id);
+      const minutes = Math.round(action.minutes);
+      if (!quest || minutes <= 0) return { data, events: [] };
+      const timer = { questId: quest.id, location: quest.location, startedAt: action.at, durationMs: minutes * 60_000 };
+      return {
+        data: {
+          ...data,
+          quests: data.quests.map((q) => (q.id === quest.id ? { ...q, timerMinutes: minutes } : q)),
+          timers: [...data.timers.filter((t) => t.questId !== quest.id), timer],
+        },
+        events: [],
+      };
+    }
+    case 'cancelTimer':
+      return { data: { ...data, timers: data.timers.filter((t) => t.questId !== action.id) }, events: [] };
 
     case 'planToday': {
       const ids = plannedIds(data, now);
@@ -124,7 +145,8 @@ export function applyAction(data: GameData, action: GameAction, now: number): Ac
         ...data.history,
         { questId: quest.id, title: quest.title, icon: quest.icon, location: quest.location, xp: quest.xp, at: now },
       ];
-      return { data: { ...data, quests, xp, history }, events };
+      const timers = data.timers.filter((t) => t.questId !== quest.id);
+      return { data: { ...data, quests, xp, history, timers }, events };
     }
 
     case 'saveDiary': {

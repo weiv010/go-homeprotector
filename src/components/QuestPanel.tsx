@@ -2,6 +2,8 @@ import { useState } from 'react';
 import type { GameData, Quest } from '../core/types';
 import { allQuestsSorted, daysUntilDue, questStatus, todaysQuests } from '../core/quests';
 import { plannedIds } from '../core/game';
+import { formatRemaining, remainingMs } from '../core/timers';
+import { useNow } from '../useNow';
 import { repeatLabel, TIME_SLOT_LABELS, DIARY_POINTS } from '../data/options';
 import { dateKey } from '../core/time';
 
@@ -36,6 +38,9 @@ export function QuestRow({ q, data, now, onGo, onEdit, plan, onRemove }: RowProp
   const status = questStatus(q, now);
   const loc = data.locations.find((l) => l.id === q.location);
   const left = daysUntilDue(q, now);
+  const timer = data.timers.find((t) => t.questId === q.id);
+  const tick = useNow(!!timer);
+  const timeLeft = timer ? remainingMs(timer, tick) : 0;
   return (
     <li className={`quest-row ${status}`}>
       <button className="quest-main" onClick={onGo} disabled={!onGo}>
@@ -48,6 +53,11 @@ export function QuestRow({ q, data, now, onGo, onEdit, plan, onRemove }: RowProp
         </span>
         <span className="quest-right">
           <span className="quest-xp">+{q.xp}XP</span>
+          {timer && (
+            <span className={`quest-status timer ${timeLeft === 0 ? 'ready' : ''}`}>
+              {timeLeft === 0 ? '⏰ 완료 가능' : `⏳ ${formatRemaining(timeLeft)}`}
+            </span>
+          )}
           {status === 'done' && <span className="quest-status done">완료!</span>}
           {status === 'due' && plan && <span className="quest-status due">할 차례</span>}
           {status === 'upcoming' && <span className="quest-status">D-{left}</span>}

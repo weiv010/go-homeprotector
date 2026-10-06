@@ -3,6 +3,8 @@ import type { CleanLevel, GameData } from '../core/types';
 import { CLEAN_BADGES } from '../core/quests';
 import { GameEngine, MAP_OX, MAP_OY, mapPixelSize, TILE, type MoveMode } from '../game/engine';
 import { HOUSE_MAP, START_LOCATION } from '../data/houseMap';
+import { formatRemaining, remainingMs, timersByLocation } from '../core/timers';
+import { useNow } from '../useNow';
 
 export interface GameViewHandle {
   walkTo(locationId: string, mode?: MoveMode): Promise<boolean>;
@@ -41,6 +43,8 @@ export const GameView = forwardRef<GameViewHandle, Props>(function GameView(
   const drag = useRef<{ x: number; y: number; moved: boolean } | null>(null);
   const [overview, setOverview] = useState(loadOverview);
   const { w, h } = mapPixelSize(data.mapSize.cols, data.mapSize.rows);
+  const tick = useNow(data.timers.length > 0);
+  const roomTimers = timersByLocation(data.timers, tick);
 
   const world = () => ({
     cols: data.mapSize.cols,
@@ -159,6 +163,7 @@ export const GameView = forwardRef<GameViewHandle, Props>(function GameView(
                 className={`room-label lv${level} ${selected === loc.id ? 'selected' : ''}`}
                 style={{ left: `${left}%`, top: `${top}%` }}
               >
+                {roomTimers[loc.id] && <RoomTimerChip {...roomTimers[loc.id]} now={tick} />}
                 {loc.nfcId && <span className="nfc-dot" title="NFC">🐾</span>}
                 {loc.name} <span className="badge">{CLEAN_BADGES[level]}</span>
               </div>
@@ -176,3 +181,14 @@ export const GameView = forwardRef<GameViewHandle, Props>(function GameView(
     </div>
   );
 });
+
+/** 공간 이름표 위에 뜨는 타이머 */
+function RoomTimerChip({ timer, count, now }: { timer: { startedAt: number; durationMs: number; questId: string; location: string }; count: number; now: number }) {
+  const left = remainingMs(timer, now);
+  return (
+    <span className={`room-timer ${left === 0 ? 'done' : ''}`}>
+      {left === 0 ? '⏰ 완료!' : `⏳ ${formatRemaining(left)}`}
+      {count > 1 && <small> +{count - 1}</small>}
+    </span>
+  );
+}

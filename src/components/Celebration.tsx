@@ -3,7 +3,10 @@ import type { GameEvent } from '../core/types';
 import { findItem } from '../data/shopItems';
 
 /** 화면 녹화했을 때 잘 보이도록 크게 띄우는 연출 */
-export type Celebration = GameEvent | { type: 'nfc'; locationName: string; source: string };
+export type Celebration =
+  | GameEvent
+  | { type: 'nfc'; locationName: string; source: string }
+  | { type: 'timeUp'; questTitle: string; icon: string; locationName: string };
 
 const DURATION: Record<Celebration['type'], number> = {
   nfc: 1500,
@@ -11,6 +14,7 @@ const DURATION: Record<Celebration['type'], number> = {
   levelUp: 3200,
   newItem: 2600,
   diarySaved: 2200,
+  timeUp: 3500,
 };
 
 export function CelebrationOverlay({ item, onDone }: { item: Celebration; onDone(): void }) {
@@ -76,6 +80,16 @@ function renderBody(item: Celebration) {
         </>
       );
     }
+    case 'timeUp':
+      return (
+        <>
+          <div className="big-title blink">⏰ TIME UP!</div>
+          <div className="quest-name">
+            {item.icon} {item.questTitle}
+          </div>
+          <div className="sub">{item.locationName}에서 완료 버튼을 눌러 주세요!</div>
+        </>
+      );
     case 'diarySaved':
       return (
         <>
