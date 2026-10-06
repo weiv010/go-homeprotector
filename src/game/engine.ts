@@ -4,7 +4,7 @@ import { drawFly, drawMess, drawStink, MESS_COUNT, trashBag } from './mess';
 import { C } from './palette';
 import { box, rect, seeded, sprite, type Ctx } from './pixel';
 import { TileGrid } from './pathfinding';
-import { CAT_FRAMES, CAT_PALETTE, CHAR_H, CHAR_W, drawCharacter, type Facing } from './sprites';
+import { CAT_FRAMES, CAT_PALETTES, CHAR_H, CHAR_W, drawCharacter, type Facing } from './sprites';
 import { CAT_ROAM } from '../data/houseMap';
 
 // ─────────────────────────────────────────────────────────────
@@ -89,7 +89,8 @@ export class GameEngine {
   private equipped: Partial<Record<ItemSlot, string>> = {};
   private jumpT = 0;
 
-  private cat: (Actor & { sitT: number }) | null = null;
+  private cats: (Actor & { sitT: number; palette: keyof typeof CAT_PALETTES })[] = [];
+  private markers: string[] = [];
   private particles: Particle[] = [];
   private sparkleT = 0;
   private dustT = 0;
@@ -130,10 +131,12 @@ export class GameEngine {
     this.H = size.h;
     this.computeMessSpots();
     const catRoom = world.locations.find((l) => l.id === CAT_ROAM[0]);
-    if (catRoom && !this.cat) {
+    if (catRoom && !this.cats.length) {
       const free = this.grid.freeTiles(catRoom).filter((t) => t.x !== catRoom.spot.x || t.y !== catRoom.spot.y);
-      const c = tileCenter(free[Math.floor(free.length / 2)] ?? catRoom.spot);
-      this.cat = { ...c, path: [], facing: 'left', moving: false, animT: 0, sitT: 2 };
+      (['brown', 'gray'] as const).forEach((palette, i) => {
+        const c = tileCenter(free[Math.floor(((i + 1) * free.length) / 3)] ?? catRoom.spot);
+        this.cats.push({ ...c, path: [], facing: i ? 'right' : 'left', moving: false, animT: 0, sitT: 1 + i * 2.5, palette });
+      });
     }
   }
 
@@ -143,6 +146,11 @@ export class GameEngine {
 
   setEquipped(equipped: Partial<Record<ItemSlot, string>>): void {
     this.equipped = equipped;
+  }
+
+  /** 할 일이 있는 공간 위에 빨간 ! 말풍선 */
+  setQuestMarkers(locationIds: string[]): void {
+    this.markers = locationIds;
   }
 
   setSelected(locationId: string | null): void {
@@ -332,7 +340,7 @@ export class GameEngine {
       this.camX += (target - this.camX) * Math.min(1, dt * (this.mode === 'dash' && p.moving ? 8 : 4));
     }
 
-    this.updateCat(dt);
+    for (const cat of this.cats) this.updateCat(cat, dt);
 
     // 깨끗한 공간에서 반짝반짝
     this.sparkleT -= dt;
@@ -364,9 +372,7 @@ export class GameEngine {
     this.particles = this.particles.filter((pt) => pt.life > 0);
   }
 
-  private updateCat(dt: number) {
-    const cat = this.cat;
-    if (!cat) return;
+  private updateCat(cat: Actor & { sitT: number }, dt: number) {
     if (cat.moving) {
       cat.animT += dt * 6;
       if (this.stepActor(cat, CAT_SPEED, dt)) {
@@ -421,14 +427,12 @@ export class GameEngine {
     }
     const p = this.player;
     items.push({ y: p.y, draw: () => this.drawPlayer() });
-    if (this.cat) {
-      const cat = this.cat;
-      items.push({ y: cat.y, draw: () => this.drawCat() });
-    }
+    for (const cat of this.cats) items.push({ y: cat.y, draw: () => this.drawCat(cat) });
     items.sort((a, b) => a.y - b.y);
     for (const it of items) it.draw();
 
     this.drawSelection(t);
+    this.drawMarkers(t);
     this.drawRoomEffects(t);
     this.drawParticles();
 
@@ -614,13 +618,12 @@ export class GameEngine {
     }
   }
 
-  private drawCat() {
-    const cat = this.cat!;
+  private drawCat(cat: Actor & { palette: keyof typeof CAT_PALETTES }) {
     const ctx = this.ctx;
     rect(ctx, cat.x - 5, cat.y - 1, 10, 2, C.shadow);
     const flip = cat.facing === 'right';
     const rows = cat.moving ? CAT_FRAMES.walk[Math.floor(cat.animT) % 2] : CAT_FRAMES.sit;
-    sprite(ctx, rows, CAT_PALETTE, Math.round(cat.x - 6), Math.round(cat.y - 10), flip);
+    sprite(ctx, rows, CAT_PALETTES[cat.palette], Math.round(cat.x - 6), Math.round(cat.y - 10), flip);
   }
 
   private drawSelection(t: number) {
@@ -652,6 +655,27 @@ export class GameEngine {
         ctx.fillRect(x0 + w - 2, y0 + a, 2, b - a);
         ctx.fillRect(x0, y0 + h - b, 2, b - a);
       }
+    }
+  }
+
+  /** 빨간 말풍선 + 하얀 ! (공간의 서는 자리 위, 통통 튄다) */
+  private drawMarkers(t: number) {
+    const ctx = this.ctx;
+    for (const id of this.markers) {
+      const loc = this.world.locations.find((l) => l.id === id);
+      if (!loc) continue;
+      const bob = Math.floor(t / 300 + loc.spot.x) % 2;
+      const x = MAP_OX + loc.spot.x * TILE + 4;
+      // 캐릭터가 그 자리에 서 있어도 머리 위에 보이도록 충분히 위로 띄운다
+      const y = MAP_OY + loc.spot.y * TILE - 27 - bob;
+      box(ctx, x, y, 9, 10, '#e5483f', C.outline);
+      rect(ctx, x + 1, y + 1, 7, 1, '#f27a6f');
+      rect(ctx, x + 4, y + 2, 1, 4, C.white);
+      rect(ctx, x + 4, y + 7, 1, 1, C.white);
+      // 말풍선 꼬리
+      rect(ctx, x + 3, y + 10, 3, 1, C.outline);
+      rect(ctx, x + 4, y + 10, 1, 1, '#e5483f');
+      rect(ctx, x + 4, y + 11, 1, 1, C.outline);
     }
   }
 

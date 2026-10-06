@@ -13,8 +13,6 @@ interface Props {
   nfcSupported: boolean;
   nfcScanning: boolean;
   onStartNfc(): void;
-  showTestButtons: boolean;
-  setShowTestButtons(v: boolean): void;
   onSimulateTag(nfcId: string): void;
   toast(msg: string): void;
 }
@@ -59,7 +57,10 @@ export function SettingsScreen(p: Props) {
         <h2>📡 NFC</h2>
         {p.nfcSupported ? (
           <>
-            <p>이 기기는 Web NFC 를 지원해요. 버튼을 눌러 스캔을 켜면 태그를 바로 읽을 수 있어요.</p>
+            <p>
+              이 기기는 앱 안에서 태그를 바로 읽을 수 있어요. 스캔이 켜져 있으면 태그해도 <b>새 창이 생기지 않아요.</b> (한 번
+              허락하면 다음부터 앱을 열 때 자동으로 켜져요)
+            </p>
             <button className="btn primary wide" disabled={p.nfcScanning} onClick={p.onStartNfc}>
               {p.nfcScanning ? '📡 NFC 스캔 중' : 'NFC 스캔 켜기'}
             </button>
@@ -67,16 +68,9 @@ export function SettingsScreen(p: Props) {
         ) : (
           <p>
             이 브라우저는 Web NFC 를 직접 읽을 수 없어요. 대신 <b>태그에 아래 URL 을 기록</b>해 두면, 태그를 찍었을 때 휴대폰이 앱을
-            열고 자동으로 인식해요. (아이폰도 OK · 같은 URL 로 QR 코드를 만들어도 돼요)
+            열고 자동으로 인식해요. (아이폰도 OK) 이때 생긴 새 창에서 이어서 하고, 예전 창은 '쉬는 중'으로 바뀌니 닫아도 돼요.
           </p>
         )}
-        <label className="toggle-row">
-          <input type="checkbox" checked={p.showTestButtons} onChange={(e) => p.setShowTestButtons(e.target.checked)} />
-          <span>
-            "NFC 태그 완료" 테스트 버튼 보이기
-            <small>릴스 촬영할 때는 끄면 화면이 깔끔해져요</small>
-          </span>
-        </label>
       </section>
 
       <section className="card pixel-box">

@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type ReactNode } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, type ReactNode } from 'react';
 import type { CleanLevel, GameData } from '../core/types';
 import { CLEAN_BADGES } from '../core/quests';
 import { GameEngine, MAP_OX, MAP_OY, mapPixelSize, TILE, type MoveMode } from '../game/engine';
@@ -15,6 +15,10 @@ interface Props {
   data: GameData;
   cleanLevels: Record<string, CleanLevel>;
   selected: string | null;
+  /** 할 일이 있어서 빨간 ! 말풍선을 띄울 공간 */
+  markers: string[];
+  /** true 면 집 전체 보기, false 면 캐릭터를 따라가는 확대 보기 */
+  overview: boolean;
   onRoomTap(locationId: string): void;
   /** 캐릭터 머리 위 말풍선 */
   bubble?: ReactNode;
@@ -22,18 +26,8 @@ interface Props {
   children?: ReactNode;
 }
 
-const OVERVIEW_KEY = 'go-homeprotector/overview';
-
-function loadOverview(): boolean {
-  try {
-    return localStorage.getItem(OVERVIEW_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-
 export const GameView = forwardRef<GameViewHandle, Props>(function GameView(
-  { data, cleanLevels, selected, onRoomTap, bubble, children },
+  { data, cleanLevels, selected, markers, overview, onRoomTap, bubble, children },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -41,7 +35,6 @@ export const GameView = forwardRef<GameViewHandle, Props>(function GameView(
   const bubbleRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; moved: boolean } | null>(null);
-  const [overview, setOverview] = useState(loadOverview);
   const { w, h } = mapPixelSize(data.mapSize.cols, data.mapSize.rows);
   const tick = useNow(data.timers.length > 0);
   const roomTimers = timersByLocation(data.timers, tick);
@@ -97,6 +90,8 @@ export const GameView = forwardRef<GameViewHandle, Props>(function GameView(
   useEffect(() => engineRef.current?.setCleanLevels(cleanLevels), [cleanLevels]);
   useEffect(() => engineRef.current?.setEquipped(data.equipped), [data.equipped]);
   useEffect(() => engineRef.current?.setSelected(selected), [selected]);
+  const markerKey = markers.join(',');
+  useEffect(() => engineRef.current?.setQuestMarkers(markerKey ? markerKey.split(',') : []), [markerKey]);
 
   useImperativeHandle(ref, () => ({
     walkTo: (id, mode) => engineRef.current?.walkTo(id, mode) ?? Promise.resolve(false),
@@ -125,21 +120,12 @@ export const GameView = forwardRef<GameViewHandle, Props>(function GameView(
     if (id) onRoomTap(id);
   };
 
-  const toggleOverview = () => {
-    const next = !overview;
-    setOverview(next);
-    engineRef.current?.follow();
-    try {
-      localStorage.setItem(OVERVIEW_KEY, next ? '1' : '0');
-    } catch {
-      /* noop */
-    }
-  };
+  useEffect(() => engineRef.current?.follow(), [overview]);
 
   return (
     <div
       className={`map-wrap ${overview ? 'overview' : 'follow'}`}
-      style={overview ? { aspectRatio: `${w} / ${h}` } : { height: `min(54dvh, calc(100vw * ${h} / ${w} * 1.9))` }}
+      style={overview ? { aspectRatio: `${w} / ${h}` } : undefined}
     >
       <canvas
         ref={canvasRef}
@@ -174,9 +160,6 @@ export const GameView = forwardRef<GameViewHandle, Props>(function GameView(
       <div ref={bubbleRef} className="char-bubble-anchor">
         {bubble && <div className="char-bubble">{bubble}</div>}
       </div>
-      <button className="map-zoom" onClick={toggleOverview} aria-label={overview ? '확대해서 보기' : '집 전체 보기'}>
-        {overview ? '🔎' : '🏠'}
-      </button>
       {children}
     </div>
   );

@@ -101,6 +101,16 @@ export class WebNfcReader {
   }
 }
 
+/** 이미 NFC 권한을 허락한 적이 있으면 버튼 없이 바로 스캔을 켤 수 있다 */
+export async function nfcPermissionGranted(): Promise<boolean> {
+  try {
+    const st = await navigator.permissions.query({ name: 'nfc' as PermissionName });
+    return st.state === 'granted';
+  } catch {
+    return false;
+  }
+}
+
 /** 앱이 "?tag=xxx" 로 열렸는지 확인하고, 확인한 뒤에는 주소창에서 지운다 */
 export function consumeTagFromUrl(): NfcTagEvent | null {
   const url = new URL(window.location.href);

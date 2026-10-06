@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { BottomNav, type Tab } from './components/BottomNav';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CelebrationOverlay, type Celebration } from './components/Celebration';
 import { ClosetScreen } from './components/ClosetScreen';
 import { GameView, type GameViewHandle } from './components/GameView';
+import { Modal } from './components/Modal';
 import { QuestForm } from './components/QuestForm';
 import { QuestPanel } from './components/QuestPanel';
 import { RecordScreen } from './components/RecordScreen';
@@ -10,33 +10,36 @@ import { RoomSheet } from './components/RoomSheet';
 import { SettingsScreen } from './components/SettingsScreen';
 import { Splash } from './components/Splash';
 import { TimerSetup } from './components/TimerSetup';
-import { isFinished } from './core/timers';
-import { useNow } from './useNow';
 import { TopBar } from './components/TopBar';
-import type { GameAction } from './core/game';
+import { plannedIds, type GameAction } from './core/game';
+import { questStatus } from './core/quests';
+import { isFinished } from './core/timers';
 import type { GameEvent, Quest } from './core/types';
-import { consumeTagFromUrl, isWebNfcSupported, WebNfcReader, type NfcTagEvent } from './nfc/nfc';
+import { consumeTagFromUrl, isWebNfcSupported, nfcPermissionGranted, WebNfcReader, type NfcTagEvent } from './nfc/nfc';
+import { useSingleTab } from './singleTab';
 import { useGame } from './useGame';
+import { useNow } from './useNow';
 
 /**
  * 게임 진행 단계
  *  idle      : 집 구경 중
  *  walking   : 선택한 공간으로 걸어가는 중
- *  awaitTag  : 도착! 현실의 NFC 태그를 기다리는 중
+ *  awaitTag  : 도착! 현실의 NFC 태그를 기다리는 중 (태그 없이는 퀘스트를 열 수 없다)
  *  dashing   : NFC 인식 → 빠르게 달려가는 중
  *  room      : 공간 퀘스트 창이 열린 상태
  */
 type Phase = 'idle' | 'walking' | 'awaitTag' | 'dashing' | 'room';
 
-const PREFS_KEY = 'go-homeprotector/prefs';
+/** 맵 위에 겹쳐 뜨는 페이지 */
+type Page = 'record' | 'closet' | 'settings';
 
-function loadPrefs(): { showTestButtons: boolean } {
-  try {
-    return { showTestButtons: true, ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}') };
-  } catch {
-    return { showTestButtons: true };
-  }
-}
+const OVERVIEW_KEY = 'go-homeprotector/overview';
+
+const PAGE_TITLES: Record<Page, string> = {
+  record: '📖 기록',
+  closet: '👗 옷장',
+  settings: '⚙️ 설정',
+};
 
 export default function App() {
   const { data, now, dispatch, replaceData, cleanLevels } = useGame();
@@ -44,7 +47,8 @@ export default function App() {
   dataRef.current = data;
 
   const gameRef = useRef<GameViewHandle>(null);
-  const [tab, setTab] = useState<Tab>('home');
+  const [page, setPage] = useState<Page | null>(null);
+  const [questsOpen, setQuestsOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>('idle');
   const [selected, setSelected] = useState<string | null>(null);
   const [form, setForm] = useState<{ quest: Quest | null; location?: string } | null>(null);
@@ -52,7 +56,23 @@ export default function App() {
   const [queue, setQueue] = useState<{ id: number; item: Celebration }[]>([]);
   const nextId = useRef(1);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
-  const [prefs, setPrefs] = useState(loadPrefs);
+  const tabs = useSingleTab();
+  const [overview, setOverview] = useState(() => {
+    try {
+      return localStorage.getItem(OVERVIEW_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleOverview = () => {
+    const next = !overview;
+    setOverview(next);
+    try {
+      localStorage.setItem(OVERVIEW_KEY, next ? '1' : '0');
+    } catch {
+      /* noop */
+    }
+  };
 
   // NFC 태그(URL)로 열린 경우에는 타이틀을 건너뛰고 바로 게임으로
   const [showSplash, setShowSplash] = useState(() => !new URLSearchParams(window.location.search).has('tag'));
@@ -74,24 +94,16 @@ export default function App() {
 
   const act = useCallback((a: GameAction) => pushEvents(dispatch(a)), [dispatch, pushEvents]);
 
-  const setShowTestButtons = (v: boolean) => {
-    const next = { ...prefs, showTestButtons: v };
-    setPrefs(next);
-    try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify(next));
-    } catch {
-      /* noop */
-    }
-  };
-
   // ── 1) 게임에서 공간 선택 → 캐릭터 이동 → NFC 안내 ──
   const goToRoom = useCallback(async (locationId: string) => {
-    setTab('home');
+    setPage(null);
+    setQuestsOpen(false);
     setSelected(locationId);
     setPhase('walking');
     const arrived = await gameRef.current?.walkTo(locationId, 'walk');
     if (!arrived) return;
-    // NFC 태그가 없는 공간(화장실·거실)이나 타이머가 돌고 있는 공간은 도착하자마자 퀘스트 창을 연다
+    // 태그가 붙은 공간은 반드시 태그해야 퀘스트가 열린다.
+    // 예외: 태그가 없는 공간(화장실·거실), 이미 태그하고 타이머를 켜 둔 공간
     const hasTag = !!dataRef.current.locations.find((l) => l.id === locationId)?.nfcId;
     const hasTimer = dataRef.current.timers.some((t) => t.location === locationId);
     setPhase(hasTag && !hasTimer ? 'awaitTag' : 'room');
@@ -110,7 +122,8 @@ export default function App() {
         toast(`등록되지 않은 태그예요: ${e.nfcId}`);
         return;
       }
-      setTab('home');
+      setPage(null);
+      setQuestsOpen(false);
       setSelected(loc.id);
       setPhase('dashing');
       setQueue((q) => [wrap({ type: 'nfc', locationName: loc.name, source: e.source }), ...q]);
@@ -122,18 +135,30 @@ export default function App() {
 
   const simulateTag = (nfcId: string) => void handleTag({ nfcId, source: 'test' });
 
-  const startNfc = async () => {
-    try {
-      await nfcReader.current.start(
-        (e) => void handleTag(e),
-        (serial) => toast(`ID 가 없는 태그예요 (${serial}). 설정에서 태그 URL 을 기록해 주세요`),
-      );
-      setNfcScanning(true);
-      toast('📡 NFC 스캔을 켰어요');
-    } catch (err) {
-      toast(err instanceof Error ? err.message : 'NFC 를 켤 수 없어요');
-    }
-  };
+  /** 앱 안에서 NFC 읽기 (안드로이드 크롬). 켜져 있으면 태그해도 새 창이 생기지 않는다 */
+  const startNfc = useCallback(
+    async (quiet = false) => {
+      if (!nfcSupported || nfcReader.current.scanning) return;
+      try {
+        await nfcReader.current.start(
+          (e) => void handleTag(e),
+          (serial) => toast(`ID 가 없는 태그예요 (${serial}). 설정에서 태그 URL 을 기록해 주세요`),
+        );
+        setNfcScanning(true);
+        if (!quiet) toast('📡 NFC 스캔을 켰어요');
+      } catch (err) {
+        if (!quiet) toast(err instanceof Error ? err.message : 'NFC 를 켤 수 없어요');
+      }
+    },
+    [nfcSupported, handleTag, toast],
+  );
+
+  // 이미 NFC 권한을 허락했다면 앱을 열자마자 스캔을 켠다
+  useEffect(() => {
+    void nfcPermissionGranted().then((ok) => {
+      if (ok) void startNfc(true);
+    });
+  }, [startNfc]);
 
   // 앱이 NFC 태그(URL)로 열린 경우
   useEffect(() => {
@@ -189,6 +214,14 @@ export default function App() {
     setSelected(null);
   };
 
+  // 오늘의 퀘스트 중 아직 안 한 것이 있는 공간 → 빨간 ! 말풍선 (타이머가 도는 곳은 타이머 표시로 대신)
+  const planned = plannedIds(data, now);
+  const todo = data.quests.filter((q) => planned.includes(q.id) && questStatus(q, now) !== 'done');
+  const markers = useMemo(
+    () => [...new Set(todo.filter((q) => !data.timers.some((t) => t.questId === q.id)).map((q) => q.location))],
+    [todo, data.timers],
+  );
+
   const selectedLoc = data.locations.find((l) => l.id === selected) ?? null;
 
   const bubble =
@@ -198,33 +231,66 @@ export default function App() {
       <>🚶 {selectedLoc.name}(으)로 가는 중…</>
     ) : null;
 
+  const openPage = (p: Page) => {
+    setQuestsOpen(false);
+    setPage(p);
+  };
+
   return (
-    <div className={`app tab-${tab}`}>
+    <div className="app">
       <TopBar xp={data.xp} points={data.points} nfcOn={nfcScanning} dayOffset={data.debugDayOffset} />
 
-      <main className="main">
-        <div className="home" hidden={tab !== 'home'}>
-          <GameView ref={gameRef} data={data} cleanLevels={cleanLevels} selected={selected} onRoomTap={handleRoomTap} bubble={bubble}>
-            {phase === 'awaitTag' && selectedLoc && (
-              <div className="map-actions pop-in">
-                {nfcSupported && !nfcScanning && (
-                  <button className="btn primary" onClick={startNfc}>
-                    📡 NFC 켜기
-                  </button>
-                )}
-                {prefs.showTestButtons && (
-                  <button className="btn" onClick={() => simulateTag(selectedLoc.nfcId)}>
-                    ✅ NFC 태그 완료
-                  </button>
-                )}
-                <button className="btn ghost" onClick={closeRoom}>
-                  취소
+      <main className="map-area">
+        <GameView
+          ref={gameRef}
+          data={data}
+          cleanLevels={cleanLevels}
+          selected={selected}
+          markers={markers}
+          overview={overview}
+          onRoomTap={handleRoomTap}
+          bubble={bubble}
+        >
+          {phase === 'awaitTag' && selectedLoc && (
+            <div className="map-actions pop-in">
+              <span className="tag-hint">
+                {nfcScanning ? '📡 휴대폰 뒷면을 태그에 대 주세요' : '📱 휴대폰으로 태그를 찍어 주세요'}
+              </span>
+              {nfcSupported && !nfcScanning && (
+                <button className="btn primary small" onClick={() => void startNfc()}>
+                  📡 앱에서 읽기
                 </button>
-              </div>
-            )}
-          </GameView>
+              )}
+              <button className="btn ghost small" onClick={closeRoom}>
+                취소
+              </button>
+            </div>
+          )}
+        </GameView>
 
-          {phase === 'room' && selectedLoc ? (
+        {/* 사이드 원형 버튼 */}
+        <nav className="side-nav" aria-label="메뉴">
+          <button className="side-btn quest" onClick={() => setQuestsOpen(true)} aria-label="퀘스트">
+            📜{todo.length > 0 && <span className="side-badge">{todo.length}</span>}
+            <span className="side-label">퀘스트</span>
+          </button>
+          <button className="side-btn" onClick={() => openPage('record')} aria-label="기록">
+            📖<span className="side-label">기록</span>
+          </button>
+          <button className="side-btn" onClick={() => openPage('closet')} aria-label="옷장">
+            👗<span className="side-label">옷장</span>
+          </button>
+          <button className="side-btn" onClick={() => openPage('settings')} aria-label="설정">
+            ⚙️<span className="side-label">설정</span>
+          </button>
+          <button className="side-btn small" onClick={toggleOverview} aria-label={overview ? '확대해서 보기' : '집 전체 보기'}>
+            {overview ? '🔎' : '🏠'}
+            <span className="side-label">{overview ? '확대' : '전체'}</span>
+          </button>
+        </nav>
+
+        {phase === 'room' && selectedLoc && (
+          <div className="room-popup">
             <RoomSheet
               data={data}
               now={now}
@@ -236,42 +302,52 @@ export default function App() {
               onAdd={() => setForm({ quest: null, location: selectedLoc.id })}
               onClose={closeRoom}
             />
-          ) : (
-            <QuestPanel
-              data={data}
-              now={now}
-              onGo={(q) => void goToRoom(q.location)}
-              onEdit={(q) => setForm({ quest: q })}
-              onAdd={() => setForm({ quest: null })}
-              onDiary={() => setTab('record')}
-              onPlan={(q) => {
-                act({ type: 'planToday', id: q.id });
-                toast(`${q.icon} ${q.title} 오늘 추가!`);
-              }}
-              onUnplan={(q) => act({ type: 'unplanToday', id: q.id })}
-            />
-          )}
-        </div>
+          </div>
+        )}
 
-        {tab === 'record' && <RecordScreen data={data} now={now} onSaveDiary={(text) => act({ type: 'saveDiary', text })} />}
-        {tab === 'closet' && <ClosetScreen data={data} dispatch={act} />}
-        {tab === 'settings' && (
-          <SettingsScreen
-            data={data}
-            dispatch={act}
-            replaceData={replaceData}
-            nfcSupported={nfcSupported}
-            nfcScanning={nfcScanning}
-            onStartNfc={startNfc}
-            showTestButtons={prefs.showTestButtons}
-            setShowTestButtons={setShowTestButtons}
-            onSimulateTag={simulateTag}
-            toast={toast}
-          />
+        {page && (
+          <section className="page">
+            <header className="page-head">
+              <button className="btn small" onClick={() => setPage(null)}>
+                ← 집으로
+              </button>
+              <h1>{PAGE_TITLES[page]}</h1>
+            </header>
+            {page === 'record' && <RecordScreen data={data} now={now} onSaveDiary={(text) => act({ type: 'saveDiary', text })} />}
+            {page === 'closet' && <ClosetScreen data={data} dispatch={act} />}
+            {page === 'settings' && (
+              <SettingsScreen
+                data={data}
+                dispatch={act}
+                replaceData={replaceData}
+                nfcSupported={nfcSupported}
+                nfcScanning={nfcScanning}
+                onStartNfc={() => void startNfc()}
+                onSimulateTag={simulateTag}
+                toast={toast}
+              />
+            )}
+          </section>
         )}
       </main>
 
-      <BottomNav tab={tab} onChange={setTab} />
+      {questsOpen && (
+        <Modal title="📜 퀘스트" onClose={() => setQuestsOpen(false)}>
+          <QuestPanel
+            data={data}
+            now={now}
+            onGo={(q) => void goToRoom(q.location)}
+            onEdit={(q) => setForm({ quest: q })}
+            onAdd={() => setForm({ quest: null })}
+            onDiary={() => openPage('record')}
+            onPlan={(q) => {
+              act({ type: 'planToday', id: q.id });
+              toast(`${q.icon} ${q.title} 오늘 추가!`);
+            }}
+            onUnplan={(q) => act({ type: 'unplanToday', id: q.id })}
+          />
+        </Modal>
+      )}
 
       {form && (
         <QuestForm
@@ -316,7 +392,26 @@ export default function App() {
         />
       )}
       {toastMsg && <div className="toast pop-in">{toastMsg}</div>}
-      {showSplash && <Splash onStart={() => setShowSplash(false)} />}
+      {showSplash && (
+        <Splash
+          onStart={() => {
+            setShowSplash(false);
+            // 시작 버튼을 누른 순간(사용자 동작)에 NFC 읽기를 켠다 → 이후 태그해도 새 창이 안 생김
+            void startNfc(true);
+          }}
+        />
+      )}
+      {tabs.inactive && (
+        <div className="tab-sleep">
+          <div className="pixel-box tab-sleep-card">
+            <p>😴 이 창은 쉬는 중이에요</p>
+            <p className="muted">태그로 새로 열린 창에서 이어서 하고 있어요. 이 탭은 닫아도 돼요.</p>
+            <button className="btn primary" onClick={tabs.takeOver}>
+              여기서 계속하기
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

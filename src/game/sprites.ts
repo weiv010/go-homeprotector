@@ -269,21 +269,25 @@ export function drawCharacter(
 
 export const CAT_FRAMES = {
   walk: [
-    ['k.k.........', 'kokk........', 'koook...kk..', 'kowok..k....', 'kpooookk....', '.koooooook..', '.koooooook..', '..kook.kok..', '..k.k...k.k.', '............'],
-    ['k.k.........', 'kokk........', 'koook...kk..', 'kowok..k....', 'kpooookk....', '.koooooook..', '.koooooook..', '..kok..kook.', '...k.k.k.k..', '............'],
+    ['k.k.........', 'kskk........', 'kosok...kk..', 'kowok..k....', 'kpooskk.....', '.kosososok..', '.koollllok..', '..kook.kok..', '..k.k...k.k.', '............'],
+    ['k.k.........', 'kskk........', 'kosok...kk..', 'kowok..k....', 'kpooskk.....', '.kosososok..', '.koollllok..', '..kok..kook.', '...k.k.k.k..', '............'],
   ],
   sit: [
     '..........kk',
     'k.k......k..',
-    'kokk.....k..',
-    'koook...kok.',
+    'kskk.....k..',
+    'kosok...ksk.',
     'kowok..kook.',
-    'kpoooookook.',
-    '.koooooook..',
-    '.kooooooook.',
+    'kpososokook.',
+    '.kosososok..',
+    '.koollllook.',
     '.kkkkkkkkkk.',
     '............',
   ],
 };
 
-export const CAT_PALETTE: Palette = { k: C.outline, o: '#f3dcbc', w: '#2b1d24', p: '#ff9aa8' };
+/** 고등어 무늬 고양이 두 마리 (o 바탕 · s 줄무늬 · l 배) */
+export const CAT_PALETTES: Record<'brown' | 'gray', Palette> = {
+  brown: { k: C.outline, o: '#b98a5e', s: '#6b4a2f', l: '#ead6b5', w: '#2b1d24', p: '#ff9aa8' },
+  gray: { k: C.outline, o: '#a9a8ad', s: '#5c5b63', l: '#e6e4e1', w: '#2b1d24', p: '#ff9aa8' },
+};

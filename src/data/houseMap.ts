@@ -176,7 +176,7 @@ export const HOUSE_MAP: HouseMap = {
 export const START_LOCATION = 'hall';
 
 /** 고양이가 돌아다니는 공간 */
-export const CAT_ROAM = ['cat', 'bedroom'];
+export const CAT_ROAM = ['cat', 'bedroom', 'hall'];
 
 /** 예전 버전 공간 ID → 새 공간 ID (저장 데이터 이전용) */
 export const LEGACY_LOCATION_IDS: Record<string, string> = {
