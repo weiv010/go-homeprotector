@@ -28,6 +28,11 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+        env:
+          # Supabase 자동 백업 연결 정보 (Settings → Secrets and variables → Actions 에 등록)
+          # 등록하지 않으면 앱 설정 화면에서 직접 입력해서 쓸 수 있다.
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || vars.VITE_SUPABASE_ANON_KEY }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

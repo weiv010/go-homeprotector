@@ -4,6 +4,7 @@ import { migrate } from '../core/storage';
 import type { GameData } from '../core/types';
 import { tagUrlFor } from '../nfc/nfc';
 import { ConfirmDialog } from './Modal';
+import { CloudBackupSection } from './CloudBackupSection';
 
 interface Props {
   data: GameData;
@@ -138,6 +139,8 @@ export function SettingsScreen(p: Props) {
         </ul>
       </section>
 
+      <CloudBackupSection data={data} replaceData={p.replaceData} toast={p.toast} copy={copy} />
+
       <section className="card pixel-box">
         <h2>🧪 테스트 도구</h2>
         <p className="muted">집 상태 변화를 미리 보거나 촬영할 때 써요. 실제 기록에는 영향이 없도록 끝나면 원래대로 돌려 주세요.</p>
@@ -163,7 +166,7 @@ export function SettingsScreen(p: Props) {
 
       <section className="card pixel-box">
         <h2>💾 데이터</h2>
-        <p className="muted">데이터는 이 기기의 브라우저에 저장돼요. 가끔 백업해 두면 안심!</p>
+        <p className="muted">데이터는 이 기기에 먼저 저장돼요. 파일로도 따로 보관할 수 있어요.</p>
         <div className="row gap wrap">
           <button className="btn" onClick={exportData}>
             ⬇️ 백업 파일 저장

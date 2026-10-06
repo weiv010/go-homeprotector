@@ -1369,3 +1369,35 @@ h2 {
   color: var(--ink-soft);
   font-weight: 700;
 }
+
+/* ── 자동 백업 ── */
+.backup-status {
+  margin: 0 0 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  background: #fff;
+}
+.backup-status.ok {
+  background: #e7f5ea;
+  color: var(--mint-deep);
+}
+.backup-status.saving {
+  background: #eef4fb;
+  color: var(--blue);
+}
+.backup-status.error {
+  background: #fde6e1;
+  color: var(--danger);
+}
+.backup-status.off {
+  color: var(--ink-soft);
+}
+.wide-input {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+  font-size: 14px;
+}

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { applyAction, createInitialData, type GameAction } from './core/game';
 import { houseCleanLevels } from './core/quests';
 import { LocalStorageRepository } from './core/storage';
+import { autoBackup } from './core/cloudBackup';
 import { shiftDays } from './core/time';
 import type { GameData, GameEvent } from './core/types';
 
@@ -16,7 +17,13 @@ export function useGame() {
   // 시간이 흐르면 집 상태가 바뀌므로 30초마다 시계를 갱신한다
   useEffect(() => {
     const id = window.setInterval(() => setClock(Date.now()), 30_000);
-    const onVisible = () => document.visibilityState === 'visible' && setClock(Date.now());
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') setClock(Date.now());
+      // 앱을 내리거나 닫을 때 밀린 백업을 바로 보낸다
+      else void autoBackup.flush(true);
+    };
+    // 앱을 열 때마다 한 번 백업 (설정돼 있을 때만)
+    autoBackup.schedule(dataRef.current);
     document.addEventListener('visibilitychange', onVisible);
     // NFC 태그(URL)로 새 탭이 열려 저장 데이터가 바뀌면 이 탭에도 반영한다
     const onStorage = (e: StorageEvent) => {
@@ -43,6 +50,7 @@ export function useGame() {
     if (next !== dataRef.current) {
       dataRef.current = next;
       repo.save(next);
+      autoBackup.schedule(next);
       setData(next);
       setClock(Date.now());
     }
@@ -52,6 +60,7 @@ export function useGame() {
   const replaceData = useCallback((next: GameData) => {
     dataRef.current = next;
     repo.save(next);
+    autoBackup.schedule(next);
     setData(next);
   }, []);
 
