@@ -21,6 +21,7 @@
   --ink-soft: #85695a;
   --bg: #f6ecdb;
   --bg-dot: #ecdcc2;
+  --logo-bg: #fdf4e2; /* src/assets/title.webp 의 바탕색 */
   --panel: #fffaf0;
   --panel-2: #f3e3c8;
   --wood: #c48a4f;
@@ -1268,9 +1269,8 @@ h2 {
   justify-content: center;
   gap: 18px;
   padding: 24px 16px;
-  background-color: var(--bg);
-  background-image: radial-gradient(var(--bg-dot) 1.5px, transparent 1.5px);
-  background-size: 12px 12px;
+  /* 로고 이미지 바탕색과 똑같은 단색이라 로고와 배경이 이어져 보인다 */
+  background: var(--logo-bg);
   cursor: pointer;
 }
 .splash.leaving {
@@ -1285,7 +1285,12 @@ h2 {
 .splash-logo {
   width: min(100%, 460px);
   height: auto;
-  mix-blend-mode: multiply;
+  /* 이미지 가장자리의 압축 자국이 보이지 않도록 테두리를 살짝 흐리게 */
+  --fade: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
+  -webkit-mask-image: var(--fade), linear-gradient(transparent, #000 5%, #000 95%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image: var(--fade), linear-gradient(transparent, #000 5%, #000 95%, transparent);
+  mask-composite: intersect;
   animation: pop-in 0.5s steps(6) both, logo-float 2.4s steps(4) infinite 0.6s;
 }
 @keyframes logo-float {
