@@ -662,6 +662,8 @@ export class GameEngine {
   private drawMarkers(t: number) {
     const ctx = this.ctx;
     for (const id of this.markers) {
+      // 지금 가 있는 공간은 말풍선 안내가 대신 뜨므로 생략
+      if (id === this.selected) continue;
       const loc = this.world.locations.find((l) => l.id === id);
       if (!loc) continue;
       const bob = Math.floor(t / 300 + loc.spot.x) % 2;
