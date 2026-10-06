@@ -76,10 +76,13 @@ function timeSortKey(q: Quest): number {
   return SLOT_ORDER[q.time.slot] * 10000 + 5000;
 }
 
-/** 오늘의 퀘스트: 할 차례인 것 + 오늘 완료한 것 (시간 순, 완료한 건 아래로) */
-export function todaysQuests(quests: Quest[], now: number): Quest[] {
+/**
+ * 오늘의 퀘스트: "오늘 하기"로 고른 퀘스트 + 오늘 이미 완료한 퀘스트.
+ * 할 일이 위, 완료한 것은 아래. 같은 그룹 안에서는 시간 순.
+ */
+export function todaysQuests(quests: Quest[], plannedIds: string[], now: number): Quest[] {
   return quests
-    .filter((q) => questStatus(q, now) !== 'upcoming')
+    .filter((q) => plannedIds.includes(q.id) || questStatus(q, now) === 'done')
     .sort((a, b) => {
       const da = questStatus(a, now) === 'done' ? 1 : 0;
       const db = questStatus(b, now) === 'done' ? 1 : 0;
@@ -88,10 +91,17 @@ export function todaysQuests(quests: Quest[], now: number): Quest[] {
     });
 }
 
-export function upcomingQuests(quests: Quest[], now: number): Quest[] {
-  return quests
-    .filter((q) => questStatus(q, now) === 'upcoming')
-    .sort((a, b) => daysUntilDue(a, now) - daysUntilDue(b, now));
+const STATUS_ORDER = { due: 0, upcoming: 1, done: 2 } as const;
+
+/** 전체 할 일: 할 차례인 것 → 아직 여유 있는 것(D-n 순) → 오늘 완료 */
+export function allQuestsSorted(quests: Quest[], now: number): Quest[] {
+  return [...quests].sort((a, b) => {
+    const sa = questStatus(a, now);
+    const sb = questStatus(b, now);
+    if (sa !== sb) return STATUS_ORDER[sa] - STATUS_ORDER[sb];
+    if (sa === 'upcoming') return daysUntilDue(a, now) - daysUntilDue(b, now) || timeSortKey(a) - timeSortKey(b);
+    return timeSortKey(a) - timeSortKey(b);
+  });
 }
 
 export function completionsOn(data: GameData, key: string) {

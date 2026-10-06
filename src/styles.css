@@ -1329,3 +1329,43 @@ h2 {
   word-break: break-all;
   user-select: all;
 }
+
+/* ── 오늘 하기 / 빼기 ── */
+.plan-btn {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 8px;
+  margin-right: 2px;
+  color: #fff;
+  text-shadow: 1px 1px 0 var(--pink-deep);
+  background: var(--pink);
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  box-shadow: 0 2px 0 var(--ink);
+  white-space: nowrap;
+}
+.plan-btn:active {
+  transform: translateY(2px);
+  box-shadow: none;
+}
+.plan-badge {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 6px;
+  margin-right: 2px;
+  color: var(--mint-deep);
+  background: #e7f5ea;
+  border: 2px solid var(--mint-deep);
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.quest-status.due {
+  background: #ffe2c2;
+  color: #b2561a;
+}
+.remove-btn {
+  color: var(--ink-soft);
+  font-weight: 700;
+}

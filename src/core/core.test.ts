@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyAction, createInitialData } from './game';
+import { applyAction, createInitialData, plannedIds } from './game';
 import { levelFor } from './progression';
 import { questCleanLevel, questStatus, todaysQuests } from './quests';
 import { migrate } from './storage';
@@ -50,11 +50,12 @@ describe('퀘스트 상태', () => {
     expect(questStatus(quest({ lastCompletedAt: null }), T0)).toBe('due');
   });
 
-  it('오늘의 퀘스트는 할 일 먼저, 완료한 것은 뒤로', () => {
+  it('오늘의 퀘스트 = 오늘 하기로 고른 것 + 오늘 완료한 것 (할 일 먼저)', () => {
     const a = quest({ id: 'a', lastCompletedAt: T0 });
     const b = quest({ id: 'b', lastCompletedAt: null, time: { slot: 'morning' } });
-    const c = quest({ id: 'c', lastCompletedAt: T0 - DAY });
-    expect(todaysQuests([a, b, c], T0).map((q) => q.id)).toEqual(['b', 'a']);
+    const c = quest({ id: 'c', lastCompletedAt: T0 - 5 * DAY });
+    expect(todaysQuests([a, b, c], ['b'], T0).map((q) => q.id)).toEqual(['b', 'a']);
+    expect(todaysQuests([a, b, c], [], T0).map((q) => q.id)).toEqual(['a']);
   });
 });
 
@@ -111,6 +112,28 @@ describe('게임 규칙', () => {
     expect(data.quests.find((q) => q.id === added.id)!.xp).toBe(15);
     data = applyAction(data, { type: 'deleteQuest', id: added.id }, T0).data;
     expect(data.quests.find((q) => q.id === added.id)).toBeUndefined();
+  });
+});
+
+describe('오늘 하기', () => {
+  it('전체 할 일에서 오늘 하기 → 추가, X → 제외', () => {
+    let data = createInitialData(T0);
+    data = applyAction(data, { type: 'planToday', id: 'laundry' }, T0).data;
+    data = applyAction(data, { type: 'planToday', id: 'laundry' }, T0).data;
+    expect(plannedIds(data, T0)).toEqual(['laundry']);
+    data = applyAction(data, { type: 'unplanToday', id: 'laundry' }, T0).data;
+    expect(plannedIds(data, T0)).toEqual([]);
+  });
+
+  it('다음 날이 되면 오늘 할 일은 새로 비어 있다', () => {
+    const data = applyAction(createInitialData(T0), { type: 'planToday', id: 'yoga' }, T0).data;
+    expect(plannedIds(data, T0 + DAY)).toEqual([]);
+  });
+
+  it('퀘스트를 삭제하면 오늘 할 일에서도 빠진다', () => {
+    let data = applyAction(createInitialData(T0), { type: 'planToday', id: 'yoga' }, T0).data;
+    data = applyAction(data, { type: 'deleteQuest', id: 'yoga' }, T0).data;
+    expect(plannedIds(data, T0)).toEqual([]);
   });
 });
 

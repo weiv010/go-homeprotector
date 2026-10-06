@@ -167,6 +167,8 @@ export interface GameData {
   equipped: Partial<Record<ItemSlot, string>>;
   history: CompletionLog[];
   diary: Record<string, DiaryEntry>;
+  /** 오늘 하기로 고른 퀘스트. 날짜가 바뀌면 비어 있는 새 하루로 시작한다 */
+  todayPlan: { date: string; questIds: string[] };
   /** 테스트용 시간 여행 (일 단위). 실제 사용 시 0 */
   debugDayOffset: number;
 }

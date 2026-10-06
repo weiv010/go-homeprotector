@@ -22,6 +22,7 @@ export function createInitialData(now: number): GameData {
     equipped: {},
     history: [],
     diary: {},
+    todayPlan: { date: '', questIds: [] },
     debugDayOffset: 0,
   };
 }
@@ -31,6 +32,8 @@ export type GameAction =
   | { type: 'updateQuest'; id: string; draft: QuestDraft }
   | { type: 'deleteQuest'; id: string }
   | { type: 'completeQuest'; id: string }
+  | { type: 'planToday'; id: string }
+  | { type: 'unplanToday'; id: string }
   | { type: 'saveDiary'; text: string }
   | { type: 'buyItem'; itemId: string }
   | { type: 'equip'; itemId: string }
@@ -43,6 +46,11 @@ export type GameAction =
 export interface ActionResult {
   data: GameData;
   events: GameEvent[];
+}
+
+/** 오늘 계획에 들어 있는 퀘스트 ID (날짜가 지난 계획은 비어 있는 것으로 본다) */
+export function plannedIds(data: GameData, now: number): string[] {
+  return data.todayPlan.date === dateKey(now) ? data.todayPlan.questIds : [];
 }
 
 export function newId(prefix = 'q'): string {
@@ -73,7 +81,25 @@ export function applyAction(data: GameData, action: GameAction, now: number): Ac
       return { data: { ...data, quests }, events: [] };
     }
     case 'deleteQuest':
-      return { data: { ...data, quests: data.quests.filter((q) => q.id !== action.id) }, events: [] };
+      return {
+        data: {
+          ...data,
+          quests: data.quests.filter((q) => q.id !== action.id),
+          todayPlan: { ...data.todayPlan, questIds: data.todayPlan.questIds.filter((id) => id !== action.id) },
+        },
+        events: [],
+      };
+
+    case 'planToday': {
+      const ids = plannedIds(data, now);
+      if (ids.includes(action.id) || !data.quests.some((q) => q.id === action.id)) return { data, events: [] };
+      return { data: { ...data, todayPlan: { date: dateKey(now), questIds: [...ids, action.id] } }, events: [] };
+    }
+    case 'unplanToday':
+      return {
+        data: { ...data, todayPlan: { date: dateKey(now), questIds: plannedIds(data, now).filter((id) => id !== action.id) } },
+        events: [],
+      };
 
     case 'completeQuest': {
       const quest = data.quests.find((q) => q.id === action.id);

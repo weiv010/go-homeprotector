@@ -205,6 +205,11 @@ export default function App() {
               onEdit={(q) => setForm({ quest: q })}
               onAdd={() => setForm({ quest: null })}
               onDiary={() => setTab('record')}
+              onPlan={(q) => {
+                act({ type: 'planToday', id: q.id });
+                toast(`${q.icon} ${q.title} 오늘 추가!`);
+              }}
+              onUnplan={(q) => act({ type: 'unplanToday', id: q.id })}
             />
           )}
         </div>

@@ -75,6 +75,7 @@ export function migrate(raw: unknown): GameData | null {
     history: (r.history ?? []).map((h) => ({ ...h, location: fixLocation(h.location) })),
     equipped: r.equipped ?? {},
     diary: r.diary ?? {},
+    todayPlan: r.todayPlan ?? base.todayPlan,
     version: DATA_VERSION,
   };
 }
