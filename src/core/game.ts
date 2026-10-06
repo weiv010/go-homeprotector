@@ -7,7 +7,7 @@ import { levelFor } from './progression';
 import { locationCleanLevel, questStatus } from './quests';
 import { dateKey } from './time';
 
-export const DATA_VERSION = 1;
+export const DATA_VERSION = 2;
 
 export function createInitialData(now: number): GameData {
   return {

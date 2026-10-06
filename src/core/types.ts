@@ -41,7 +41,14 @@ export type FurnitureKind =
   | 'bookshelf'
   | 'catTower'
   | 'catBowl'
-  | 'catBed';
+  | 'catBed'
+  | 'toilet'
+  | 'bathSink'
+  | 'clothesRack'
+  | 'dresser'
+  | 'mirror'
+  | 'doormat'
+  | 'pouf';
 
 export interface Furniture {
   kind: FurnitureKind;
@@ -51,6 +58,8 @@ export interface Furniture {
   h: number;
   /** 바닥 장식(러그, 요가매트)은 지나갈 수 있다 */
   walkable?: boolean;
+  /** 러그 등 색을 바꿀 수 있는 가구의 색 */
+  color?: string;
 }
 
 /** 공간이 더러워졌을 때 어떤 물건이 늘어나는지 */
@@ -60,12 +69,20 @@ export interface HouseLocation {
   id: LocationId;
   name: string;
   emoji: string;
+  /** 실제 NFC 태그 ID. 빈 문자열이면 태그 없이 도착하자마자 퀘스트 창이 열린다 */
   nfcId: NfcId;
+  /**
+   * 물리적인 방 ID. 같은 room 끼리는 벽 없이 이어진 한 공간이다
+   * (예: 거실 안의 주방 구역·작업 구역). 생략하면 id 와 같다.
+   */
+  room?: string;
   /** 게임 맵 위의 공간 영역 (타일 단위) */
   rect: TileRect;
   /** 캐릭터가 서서 NFC/퀘스트를 수행하는 위치 */
   spot: TilePoint;
-  floor: 'wood' | 'tile' | 'carpet' | 'mint';
+  /** 이름표 위치 (가로 가운데, 세로 아래 기준 타일 좌표). 생략하면 영역 아래 가운데 */
+  label?: TilePoint;
+  floor: 'wood' | 'tile' | 'blueTile' | 'carpet' | 'mint';
   messKind: MessKind;
   furniture: Furniture[];
 }
@@ -81,6 +98,8 @@ export interface HouseMap {
   rows: number;
   locations: HouseLocation[];
   doors: Door[];
+  /** 윗벽 창문 위치 (타일 x) */
+  windows?: number[];
 }
 
 export type TimeSlot = 'none' | 'morning' | 'afternoon' | 'evening' | 'specific';

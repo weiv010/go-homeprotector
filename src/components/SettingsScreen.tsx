@@ -81,6 +81,19 @@ export function SettingsScreen(p: Props) {
       <section className="card pixel-box">
         <h2>🏠 공간 & NFC ID</h2>
         <p className="muted">실제 집의 공간과 NFC 태그를 연결해요. 이름과 NFC ID 를 바꿀 수 있어요.</p>
+        <button
+          className="btn wide"
+          onClick={() =>
+            copy(
+              data.locations
+                .filter((l) => l.nfcId)
+                .map((l) => `${l.name}: ${tagUrlFor(l.nfcId)}`)
+                .join('\n'),
+            )
+          }
+        >
+          📋 모든 태그 URL 한 번에 복사
+        </button>
         <ul className="loc-list">
           {data.locations.map((l) => (
             <li key={l.id} className="loc-item">
@@ -105,14 +118,21 @@ export function SettingsScreen(p: Props) {
                   }
                 />
               </div>
-              <div className="row gap">
-                <button className="btn small" onClick={() => copy(tagUrlFor(l.nfcId))}>
-                  🔗 태그 URL 복사
-                </button>
-                <button className="btn small" onClick={() => p.onSimulateTag(l.nfcId)}>
-                  📱 테스트 태그
-                </button>
-              </div>
+              {l.nfcId ? (
+                <>
+                  <code className="tag-url">{tagUrlFor(l.nfcId)}</code>
+                  <div className="row gap">
+                    <button className="btn small" onClick={() => copy(tagUrlFor(l.nfcId))}>
+                      🔗 태그 URL 복사
+                    </button>
+                    <button className="btn small" onClick={() => p.onSimulateTag(l.nfcId)}>
+                      📱 테스트 태그
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <span className="muted">태그 없음 · 도착하면 바로 퀘스트 창이 열려요</span>
+              )}
             </li>
           ))}
         </ul>

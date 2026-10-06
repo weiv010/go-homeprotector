@@ -1,5 +1,7 @@
 # 🏠 GO! 홈프로텍터
 
+![GO! 홈프로텍터](src/assets/title.webp)
+
 > 🏆 초특급 홈프로텍터가 되자!
 
 현실의 집과 게임 속 집을 1:1 로 연결한 **생활 관리 게임 웹앱**(모바일 우선 PWA)입니다.
@@ -20,9 +22,10 @@ npm run preview    # 빌드 결과 미리보기
 > Web NFC 와 PWA 설치는 **HTTPS** 에서만 동작합니다. 휴대폰에서 실제로 쓰려면 아래 배포를 이용하세요.
 
 ### GitHub Pages 배포
-`main` 브랜치에 push 하면 `.github/workflows/deploy.yml` 이 자동으로 빌드·배포합니다.
-처음 한 번 저장소 **Settings → Pages → Source** 를 **GitHub Actions** 로 바꿔 주세요.
-배포 주소: `https://<사용자명>.github.io/go-homeprotector/`
+기본 브랜치(`claude/vigilant-planck-875dwf`) 또는 `main` 에 push 하면 `.github/workflows/deploy.yml` 이
+자동으로 빌드·배포합니다. (Settings → Pages → Source = **GitHub Actions**)
+
+**앱 주소: https://weiv010.github.io/go-homeprotector/**
 
 ## 게임 흐름
 
@@ -67,7 +70,19 @@ NFC 가 안 되는 환경에서도 게임의 핵심 루프는 모두 동작합�
 | **Web NFC** | 안드로이드 크롬 | “NFC 켜기”를 누르면 앱 안에서 바로 읽음. 태그에는 위 URL 또는 텍스트 `kitchen_nfc` 를 기록 |
 | **테스트 버튼** | 모든 환경 | 공간에 도착하면 나오는 “✅ NFC 태그 완료” 버튼 (설정에서 숨길 수 있음 → 릴스 촬영용) |
 
-기본 NFC ID: `bedroom_nfc`, `kitchen_nfc`, `living_nfc`, `washing_machine_nfc`, `cat_tower_nfc`, `desk_nfc`
+### 실제로 붙이는 태그 6개 (태그에 아래 URL 을 기록)
+
+| 위치 | NFC ID | 태그에 기록할 URL |
+| --- | --- | --- |
+| 🧺 세탁실 | `washing_machine_nfc` | https://weiv010.github.io/go-homeprotector/?tag=washing_machine_nfc |
+| 💻 책상 (작업 Zone) | `desk_nfc` | https://weiv010.github.io/go-homeprotector/?tag=desk_nfc |
+| 👚 옷방 | `closet_nfc` | https://weiv010.github.io/go-homeprotector/?tag=closet_nfc |
+| 🍳 주방 | `kitchen_nfc` | https://weiv010.github.io/go-homeprotector/?tag=kitchen_nfc |
+| 🐈 고양이 Zone | `cat_tower_nfc` | https://weiv010.github.io/go-homeprotector/?tag=cat_tower_nfc |
+| 🛏️ 침대 | `bedroom_nfc` | https://weiv010.github.io/go-homeprotector/?tag=bedroom_nfc |
+
+화장실·거실은 태그 없이, 캐릭터가 도착하면 바로 퀘스트 창이 열립니다.
+앱의 설정 → “📋 모든 태그 URL 한 번에 복사”로도 받을 수 있어요.
 
 > ⚠️ 아이폰: 홈 화면에 추가한 앱(PWA)과 사파리는 저장 공간이 따로입니다. 태그 URL 은 사파리로 열리므로,
 > 아이폰에서 태그 URL 방식을 쓸 때는 **사파리에서 바로 사용**하는 것을 추천합니다.
@@ -78,14 +93,14 @@ NFC 가 안 되는 환경에서도 게임의 핵심 루프는 모두 동작합�
 
 | 파일 | 내용 |
 | --- | --- |
-| `src/data/houseMap.ts` | **집 맵**: 공간 영역(rect, 16px 타일 단위), 가구, 문, 캐릭터가 서는 위치, NFC ID |
+| `src/data/houseMap.ts` | **집 맵** (손그림 평면도 기준 22×14 타일): 공간 영역, 같은 방으로 이어진 구역(`room`), 가구, 문, 캐릭터가 서는 위치, NFC ID |
 | `src/data/defaultQuests.ts` | 처음 시작할 때의 퀘스트 |
 | `src/data/titles.ts` | 레벨별 타이틀과 필요 XP |
 | `src/data/shopItems.ts` | 상점 아이템과 가격 |
 | `src/data/options.ts` | 시간대·반복 주기·아이콘·일기 포인트 |
 
-> 맵(공간/가구/문)은 첫 실행 때 저장 데이터로 복사됩니다. `houseMap.ts` 를 고친 뒤에는
-> 설정 → “처음부터 다시”를 누르거나 백업 후 초기화해야 반영됩니다.
+> 맵(공간 영역·가구·문)은 항상 `houseMap.ts` 의 최신 내용을 쓰고, 앱에서 바꾼 공간 이름·NFC ID 만 저장됩니다.
+> 그래서 맵을 고쳐도 기록·XP 는 그대로 유지돼요.
 
 ## 코드 구조
 
@@ -110,7 +125,9 @@ src/
 └─ App.tsx        게임 진행 흐름 (공간 선택 → 이동 → NFC → 퀘스트)
 ```
 
-- 도트 기준: 타일 16×16px, 캐릭터 16×24px, 내부 해상도 236×266px 을 정수 배율로 확대(Nearest Neighbor)
+- 도트 기준: 타일 16×16px, 캐릭터 16×24px(+똥머리), 맵 내부 해상도 364×252px 을 정수 배율로 확대(Nearest Neighbor)
+- 세로 화면에서는 카메라가 캐릭터를 따라가고(옆으로 끌어서 둘러보기), 🏠 버튼으로 집 전체 보기
+- 색감은 타이틀 로고에 맞춘 따뜻한 크림·원목 톤
 - 폰트: [Galmuri](https://github.com/quiple/galmuri) (SIL OFL 1.1)
 
 ## 개발 단계 현황

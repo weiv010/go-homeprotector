@@ -16,22 +16,27 @@
 }
 
 :root {
-  --ink: #3b2530;
-  --ink-soft: #7a6470;
-  --bg: #ffe9ef;
-  --bg-dot: #ffdbe5;
-  --panel: #fff8ee;
-  --panel-2: #fff1dc;
-  --pink: #ff8fb1;
-  --pink-deep: #e0618a;
-  --mint: #7fd8b5;
-  --mint-deep: #3fae86;
-  --yellow: #ffd866;
-  --sky: #8fd3ff;
+  /* 타이틀 로고 색: 크림 바탕 · 원목 브라운 · 노랑/주황 · 민트 · 파랑 */
+  --ink: #3e2a24;
+  --ink-soft: #85695a;
+  --bg: #f6ecdb;
+  --bg-dot: #ecdcc2;
+  --panel: #fffaf0;
+  --panel-2: #f3e3c8;
+  --wood: #c48a4f;
+  --wood-light: #e3b77f;
+  --wood-dark: #8e5a32;
+  --pink: #f39a4b; /* 주 버튼: 따뜻한 주황 */
+  --pink-deep: #c96e27;
+  --mint: #8fd9b6;
+  --mint-deep: #3e9f78;
+  --yellow: #ffd54f;
+  --sky: #9fd0f0;
+  --blue: #3f6fb5;
   --purple: #b79be8;
-  --danger: #ef6f6c;
-  --xp: #4fa3e0;
-  --pt: #e7a21e;
+  --danger: #dc6450;
+  --xp: #3f6fb5;
+  --pt: #d98a1c;
   --font: 'Galmuri11', 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
   color-scheme: light;
 }
@@ -264,8 +269,9 @@ h2 {
   font-weight: 700;
   font-size: 15px;
   color: #fff;
-  background: var(--ink);
-  padding: 1px 6px;
+  background: var(--blue);
+  border: 2px solid var(--ink);
+  padding: 0 6px;
   border-radius: 4px;
 }
 .lv-title {
@@ -309,9 +315,37 @@ h2 {
   width: 100%;
   margin: 0 auto;
   flex-shrink: 0;
-  border-radius: 6px;
+  border: 3px solid var(--ink);
+  border-radius: 8px;
   box-shadow: 0 4px 0 var(--ink);
-  touch-action: manipulation;
+  background: #f4e9d6;
+  overflow: hidden;
+  touch-action: pan-y;
+}
+.label-clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.label-layer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+}
+.map-zoom {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 34px;
+  height: 34px;
+  font-size: 17px;
+  line-height: 1;
+  background: var(--panel);
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  box-shadow: 0 2px 0 var(--ink);
 }
 .map-canvas {
   display: block;
@@ -319,24 +353,32 @@ h2 {
   height: 100%;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
-  border-radius: 6px;
   cursor: pointer;
 }
 .room-label {
   position: absolute;
   transform: translate(-50%, -100%);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
-  padding: 0 4px;
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid var(--ink);
-  border-radius: 3px;
+  padding: 1px 5px;
+  background: rgba(255, 248, 232, 0.92);
+  border: 2px solid var(--ink);
+  border-radius: 5px;
   white-space: nowrap;
   pointer-events: none;
 }
+.map-wrap.overview .room-label {
+  font-size: 9px;
+  padding: 0 3px;
+  border-width: 1px;
+}
+.room-label .nfc-dot {
+  font-size: 9px;
+  margin-right: 2px;
+}
 .room-label.lv2,
 .room-label.lv3 {
-  background: #ffe7c7;
+  background: #ffdcb5;
 }
 .room-label.selected {
   background: var(--yellow);
@@ -429,7 +471,7 @@ h2 {
   font-weight: 700;
 }
 .seg button.on {
-  background: var(--ink);
+  background: var(--wood-dark);
   color: #fff;
 }
 .add-btn {
@@ -469,7 +511,7 @@ h2 {
   box-shadow: 0 2px 0 var(--ink);
 }
 .quest-row.done {
-  background: #e9f8ef;
+  background: #e7f5ea;
 }
 .quest-row.done .quest-title {
   text-decoration: line-through;
@@ -824,7 +866,7 @@ h2 {
 /* ── 옷장 / 상점 ── */
 .closet-hero {
   text-align: center;
-  background: linear-gradient(#fff8ee 70%, #ffe3ec);
+  background: linear-gradient(#fffaf0 70%, #f3e3c8);
 }
 .char-preview {
   width: 160px;
@@ -943,7 +985,7 @@ h2 {
 .bottom-nav {
   display: flex;
   border-top: 3px solid var(--ink);
-  background: var(--panel);
+  background: repeating-linear-gradient(0deg, var(--wood-light) 0 10px, #d9a96d 10px 12px);
   padding-bottom: env(safe-area-inset-bottom);
 }
 .bottom-nav button {
@@ -957,7 +999,8 @@ h2 {
   gap: 1px;
 }
 .bottom-nav button.active {
-  background: #ffe3ec;
+  background: rgba(255, 250, 240, 0.75);
+  box-shadow: inset 0 3px 0 var(--yellow);
 }
 .nav-icon {
   font-size: 22px;
@@ -1206,9 +1249,78 @@ h2 {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .splash-start,
   .confetti,
   .bottom-nav button.active .nav-icon,
   .char-bubble {
     animation: none;
   }
+}
+
+/* ── 타이틀 화면 ── */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 24px 16px;
+  background-color: var(--bg);
+  background-image: radial-gradient(var(--bg-dot) 1.5px, transparent 1.5px);
+  background-size: 12px 12px;
+  cursor: pointer;
+}
+.splash.leaving {
+  animation: splash-out 0.35s steps(5) forwards;
+}
+@keyframes splash-out {
+  to {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+}
+.splash-logo {
+  width: min(100%, 460px);
+  height: auto;
+  mix-blend-mode: multiply;
+  animation: pop-in 0.5s steps(6) both, logo-float 2.4s steps(4) infinite 0.6s;
+}
+@keyframes logo-float {
+  50% {
+    transform: translateY(-4px);
+  }
+}
+.splash-start {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--blue);
+  padding: 8px 18px;
+  background: var(--panel);
+  border: 3px solid var(--ink);
+  border-radius: 8px;
+  box-shadow: 0 4px 0 var(--ink);
+  animation: blink-soft 1s steps(2) infinite;
+}
+@keyframes blink-soft {
+  50% {
+    opacity: 0.45;
+  }
+}
+.splash-sub {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.tag-url {
+  display: block;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  padding: 4px 6px;
+  background: var(--panel-2);
+  border-radius: 4px;
+  word-break: break-all;
+  user-select: all;
 }

@@ -5,6 +5,7 @@ import { C } from './palette';
 import { box, rect, seeded, sprite, type Ctx } from './pixel';
 import { TileGrid } from './pathfinding';
 import { CAT_FRAMES, CAT_PALETTE, CHAR_H, CHAR_W, drawCharacter, type Facing } from './sprites';
+import { CAT_ROAM } from '../data/houseMap';
 
 // ─────────────────────────────────────────────────────────────
 // 도트 집 맵을 그리고 캐릭터를 움직이는 캔버스 엔진.
@@ -15,7 +16,7 @@ import { CAT_FRAMES, CAT_PALETTE, CHAR_H, CHAR_W, drawCharacter, type Facing } f
 export const TILE = 16;
 export const MAP_OX = 6;
 export const MAP_OY = 20;
-const MAP_PAD_BOTTOM = 6;
+const MAP_PAD_BOTTOM = 8;
 
 export function mapPixelSize(cols: number, rows: number) {
   return { w: cols * TILE + MAP_OX * 2, h: rows * TILE + MAP_OY + MAP_PAD_BOTTOM };
@@ -56,6 +57,14 @@ export interface WorldConfig {
   rows: number;
   locations: HouseLocation[];
   doors: Door[];
+  windows?: number[];
+}
+
+/** 매 프레임 화면 정보: 캐릭터 머리 위치(보이는 화면 대비 0~1)와 카메라(맵 전체 대비 0~1) */
+export interface FrameInfo {
+  head: { x: number; y: number };
+  camOffset: number;
+  camView: number;
 }
 
 export class GameEngine {
@@ -65,6 +74,11 @@ export class GameEngine {
   private W = 0;
   private H = 0;
   private scale = 1;
+  /** 화면에 보이는 맵 폭(내부 px). 세로 화면에서는 맵 일부만 보이고 카메라가 따라간다 */
+  private viewW = 0;
+  private camX = 0;
+  private manualCam = false;
+  private camReady = false;
   private raf = 0;
   private last = 0;
   private time = 0;
@@ -84,8 +98,8 @@ export class GameEngine {
   private messSpots: Record<string, TilePoint[]> = {};
   private selected: string | null = null;
 
-  /** 매 프레임 캐릭터 머리 위치(캔버스 대비 0~1 비율)를 알려준다. 말풍선 위치용 */
-  onFrame: ((head: { x: number; y: number }) => void) | null = null;
+  /** 매 프레임 호출. 말풍선·공간 이름표 위치용 */
+  onFrame: ((info: FrameInfo) => void) | null = null;
 
   constructor(
     private canvas: HTMLCanvasElement,
@@ -115,9 +129,10 @@ export class GameEngine {
     this.W = size.w;
     this.H = size.h;
     this.computeMessSpots();
-    const catRoom = world.locations.find((l) => l.id === 'cat');
+    const catRoom = world.locations.find((l) => l.id === CAT_ROAM[0]);
     if (catRoom && !this.cat) {
-      const c = tileCenter(catRoom.spot.x + 1 < catRoom.rect.x + catRoom.rect.w ? { x: catRoom.spot.x + 1, y: catRoom.spot.y + 1 } : catRoom.spot);
+      const free = this.grid.freeTiles(catRoom).filter((t) => t.x !== catRoom.spot.x || t.y !== catRoom.spot.y);
+      const c = tileCenter(free[Math.floor(free.length / 2)] ?? catRoom.spot);
       this.cat = { ...c, path: [], facing: 'left', moving: false, animT: 0, sitT: 2 };
     }
   }
@@ -140,6 +155,7 @@ export class GameEngine {
     if (!loc) return Promise.resolve(false);
     this.arrive?.(false);
     this.mode = mode;
+    this.manualCam = false;
     const from = this.currentTile();
     const path = this.grid.findPath(from, loc.spot);
     return new Promise((resolve) => {
@@ -186,7 +202,7 @@ export class GameEngine {
   /** 화면 좌표 → 공간 ID */
   locationAt(clientX: number, clientY: number): string | null {
     const b = this.canvas.getBoundingClientRect();
-    const px = ((clientX - b.left) / b.width) * this.W;
+    const px = ((clientX - b.left) / b.width) * this.viewW + this.camX;
     const py = ((clientY - b.top) / b.height) * this.H;
     const tx = Math.floor((px - MAP_OX) / TILE);
     const ty = Math.floor((py - MAP_OY) / TILE);
@@ -194,13 +210,34 @@ export class GameEngine {
     return this.grid.room(tx, Math.max(0, ty));
   }
 
+  /** 손가락으로 끌어서 맵 둘러보기 (화면 px) */
+  pan(dxCss: number): void {
+    const cssW = this.canvas.clientWidth || 1;
+    this.camX = this.clampCam(this.camX - (dxCss * this.viewW) / cssW);
+    this.manualCam = true;
+  }
+
+  /** 캐릭터를 다시 따라가기 */
+  follow(): void {
+    this.manualCam = false;
+  }
+
   resize(): void {
     const cssW = this.canvas.clientWidth || this.W;
+    const cssH = this.canvas.clientHeight || this.H;
     const dpr = window.devicePixelRatio || 1;
-    this.scale = Math.max(1, Math.round((cssW * dpr) / this.W));
-    this.canvas.width = this.W * this.scale;
+    this.viewW = Math.max(32, Math.round((this.H * cssW) / cssH));
+    this.scale = Math.max(1, Math.round((cssH * dpr) / this.H));
+    this.canvas.width = this.viewW * this.scale;
     this.canvas.height = this.H * this.scale;
     this.ctx.imageSmoothingEnabled = false;
+    this.camX = this.clampCam(this.camReady ? this.camX : this.player.x - this.viewW / 2);
+    this.camReady = true;
+  }
+
+  private clampCam(x: number): number {
+    if (this.viewW >= this.W) return (this.W - this.viewW) / 2;
+    return Math.min(Math.max(0, x), this.W - this.viewW);
   }
 
   // ───────────────────────── 내부 ─────────────────────────
@@ -290,6 +327,10 @@ export class GameEngine {
       p.animT = 0;
     }
     if (this.jumpT > 0) this.jumpT = Math.max(0, this.jumpT - dt);
+    if (!this.manualCam) {
+      const target = this.clampCam(p.x - this.viewW / 2);
+      this.camX += (target - this.camX) * Math.min(1, dt * (this.mode === 'dash' && p.moving ? 8 : 4));
+    }
 
     this.updateCat(dt);
 
@@ -335,11 +376,11 @@ export class GameEngine {
       return;
     }
     cat.sitT -= dt;
-    if ((this.clean['cat'] ?? 0) === 0 && Math.random() < dt * 0.25) {
+    if ((this.clean[CAT_ROAM[0]] ?? 0) === 0 && Math.random() < dt * 0.25) {
       this.particles.push({ x: cat.x, y: cat.y - 12, vx: 0, vy: -10, life: 1.2, max: 1.2, kind: 'heart', color: C.pink });
     }
     if (cat.sitT > 0) return;
-    const rooms = this.world.locations.filter((l) => l.id === 'cat' || l.id === 'living');
+    const rooms = this.world.locations.filter((l) => CAT_ROAM.includes(l.id));
     const room = rooms[Math.floor(Math.random() * rooms.length)];
     const tiles = this.grid.freeTiles(room);
     const goal = tiles[Math.floor(Math.random() * tiles.length)];
@@ -358,9 +399,10 @@ export class GameEngine {
   private render() {
     const ctx = this.ctx;
     const t = this.time;
-    ctx.setTransform(this.scale, 0, 0, this.scale, 0, 0);
+    const cam = Math.round(this.camX);
+    ctx.setTransform(this.scale, 0, 0, this.scale, -cam * this.scale, 0);
     ctx.imageSmoothingEnabled = false;
-    rect(ctx, 0, 0, this.W, this.H, '#5b4553');
+    rect(ctx, cam - 1, 0, this.viewW + 2, this.H, C.outside);
 
     this.drawTopWall(t);
     for (const loc of this.world.locations) this.drawFloor(loc);
@@ -390,14 +432,15 @@ export class GameEngine {
     this.drawRoomEffects(t);
     this.drawParticles();
 
-    // 바깥 테두리
-    ctx.strokeStyle = C.outline;
-    ctx.lineWidth = 2;
-    ctx.strokeRect(MAP_OX - 1, 1, this.world.cols * TILE + 2, this.H - MAP_PAD_BOTTOM + 3);
+    this.drawOuterWall();
 
     if (this.onFrame) {
       const jump = this.jumpOffset();
-      this.onFrame({ x: p.x / this.W, y: (p.y - CHAR_H - 2 - jump) / this.H });
+      this.onFrame({
+        head: { x: (p.x - this.camX) / this.viewW, y: (p.y - CHAR_H - 2 - jump) / this.H },
+        camOffset: this.camX / this.W,
+        camView: this.viewW / this.W,
+      });
     }
   }
 
@@ -417,14 +460,14 @@ export class GameEngine {
     // 창문 (낮/밤 하늘)
     const hour = new Date().getHours();
     const sky = hour >= 7 && hour < 18 ? '#bfe6ff' : hour >= 18 && hour < 20 ? '#ffb88a' : '#4b4f8f';
-    for (const wx of [5 * TILE, 9 * TILE]) {
+    for (const wx of (this.world.windows ?? [5, 9]).map((x) => x * TILE)) {
       box(ctx, MAP_OX + wx, 5, 22, 12, sky, C.outline);
       rect(ctx, MAP_OX + wx + 10, 6, 1, 10, C.outline);
       rect(ctx, MAP_OX + wx + 2, 7, 3, 1, '#ffffff');
       if (sky === '#4b4f8f') rect(ctx, MAP_OX + wx + 15, 8, 2, 2, C.yellow);
     }
     // 벽시계
-    const cx = MAP_OX + 2 * TILE + 26;
+    const cx = MAP_OX + 3 * TILE + 2;
     box(ctx, cx, 6, 9, 9, C.white, C.outline);
     const sec = Math.floor(t / 1000) % 4;
     rect(ctx, cx + 4, 8, 1, 3, C.outline);
@@ -442,14 +485,21 @@ export class GameEngine {
         const y = y0 + ty * TILE;
         switch (loc.floor) {
           case 'wood':
-            rect(ctx, x, y, TILE, TILE, (ty % 2 === 0) !== (tx % 2 === 0) ? C.woodLight : '#efc296');
+            rect(ctx, x, y, TILE, TILE, (ty % 2 === 0) !== (tx % 2 === 0) ? C.woodLight : '#d49b5f');
             rect(ctx, x, y + 15, TILE, 1, C.woodMid);
             rect(ctx, x + ((ty * 7) % 16), y, 1, 15, C.woodMid);
             break;
           case 'tile':
             rect(ctx, x, y, TILE, TILE, (tx + ty) % 2 === 0 ? C.tileA : C.tileB);
-            rect(ctx, x, y, TILE, 1, '#d6cfc0');
-            rect(ctx, x, y, 1, TILE, '#d6cfc0');
+            rect(ctx, x, y, TILE, 1, '#d8c6a6');
+            rect(ctx, x, y, 1, TILE, '#d8c6a6');
+            break;
+          case 'blueTile':
+            rect(ctx, x, y, TILE, TILE, C.bathA);
+            rect(ctx, x, y, TILE, 1, C.bathB);
+            rect(ctx, x, y, 1, TILE, C.bathB);
+            rect(ctx, x + 8, y, 1, TILE, C.bathB);
+            rect(ctx, x, y + 8, TILE, 1, C.bathB);
             break;
           case 'carpet':
             rect(ctx, x, y, TILE, TILE, C.carpet);
@@ -502,38 +552,41 @@ export class GameEngine {
     }
   }
 
+  /** 벽으로 나뉜 방(room) 사이에만 두꺼운 벽을 그린다. 문 자리는 비워 둔다 */
   private drawWalls() {
     const ctx = this.ctx;
     const g = this.grid;
     for (let y = 0; y < g.rows; y++) {
       for (let x = 0; x < g.cols; x++) {
-        const here = g.room(x, y);
-        // 오른쪽 경계
-        if (x + 1 < g.cols && g.room(x + 1, y) !== here) {
+        const here = g.phys(x, y);
+        if (x + 1 < g.cols && g.phys(x + 1, y) !== here && !g.isDoor({ x, y }, { x: x + 1, y })) {
           const px = MAP_OX + (x + 1) * TILE;
           const py = MAP_OY + y * TILE;
-          if (g.isDoor({ x, y }, { x: x + 1, y })) {
-            rect(ctx, px - 2, py - 1, 4, 2, C.wallTop);
-            rect(ctx, px - 2, py + TILE - 1, 4, 2, C.wallTop);
-          } else {
-            rect(ctx, px - 2, py - 2, 4, TILE + 4, C.wallTop);
-            rect(ctx, px - 1, py - 2, 1, TILE + 4, '#9b6b77');
-          }
+          // 맨 윗줄은 윗벽까지 칸막이를 이어 그린다
+          const top = y === 0 ? 2 : py - 3;
+          rect(ctx, px - 3, top, 6, py + TILE + 3 - top, C.wall);
+          rect(ctx, px - 2, top, 1, py + TILE + 3 - top, C.wallCap);
         }
-        // 아래쪽 경계
-        if (y + 1 < g.rows && g.room(x, y + 1) !== here) {
+        if (y + 1 < g.rows && g.phys(x, y + 1) !== here && !g.isDoor({ x, y }, { x, y: y + 1 })) {
           const px = MAP_OX + x * TILE;
           const py = MAP_OY + (y + 1) * TILE;
-          if (g.isDoor({ x, y }, { x, y: y + 1 })) {
-            rect(ctx, px - 1, py - 2, 2, 5, C.wallTop);
-            rect(ctx, px + TILE - 1, py - 2, 2, 5, C.wallTop);
-          } else {
-            rect(ctx, px - 2, py - 3, TILE + 4, 3, C.wallTop);
-            rect(ctx, px - 2, py, TILE + 4, 2, C.wallFaceDark);
-          }
+          rect(ctx, px - 3, py - 4, TILE + 6, 5, C.wall);
+          rect(ctx, px - 3, py - 4, TILE + 6, 1, C.wallCap);
+          rect(ctx, px - 3, py + 1, TILE + 6, 2, C.wallShade);
         }
       }
     }
+  }
+
+  private drawOuterWall() {
+    const ctx = this.ctx;
+    const w = this.world.cols * TILE;
+    const bottom = MAP_OY + this.world.rows * TILE;
+    rect(ctx, MAP_OX - 4, 0, 4, bottom + 4, C.wall);
+    rect(ctx, MAP_OX + w, 0, 4, bottom + 4, C.wall);
+    rect(ctx, MAP_OX - 4, 0, w + 8, 3, C.wall);
+    rect(ctx, MAP_OX - 4, bottom, w + 8, 4, C.wall);
+    rect(ctx, MAP_OX - 4, bottom + 4, w + 8, 2, C.wallShade);
   }
 
   private drawPlayer() {

@@ -1,7 +1,7 @@
 // GO! 홈프로텍터 서비스 워커
 // - 페이지(HTML): 네트워크 우선, 실패하면 캐시 (항상 최신 버전 우선)
 // - 그 외 정적 파일: 캐시 우선 (빌드 파일명에 해시가 있어 안전)
-const CACHE = 'homeprotector-v1';
+const CACHE = 'homeprotector-v2';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './manifest.webmanifest'])));

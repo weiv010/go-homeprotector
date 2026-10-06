@@ -8,6 +8,7 @@ import { QuestPanel } from './components/QuestPanel';
 import { RecordScreen } from './components/RecordScreen';
 import { RoomSheet } from './components/RoomSheet';
 import { SettingsScreen } from './components/SettingsScreen';
+import { Splash } from './components/Splash';
 import { TopBar } from './components/TopBar';
 import type { GameAction } from './core/game';
 import type { GameEvent, Quest } from './core/types';
@@ -49,6 +50,9 @@ export default function App() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [prefs, setPrefs] = useState(loadPrefs);
 
+  // NFC 태그(URL)로 열린 경우에는 타이틀을 건너뛰고 바로 게임으로
+  const [showSplash, setShowSplash] = useState(() => !new URLSearchParams(window.location.search).has('tag'));
+
   const nfcReader = useRef(new WebNfcReader());
   const [nfcScanning, setNfcScanning] = useState(false);
   const nfcSupported = isWebNfcSupported();
@@ -82,7 +86,10 @@ export default function App() {
     setSelected(locationId);
     setPhase('walking');
     const arrived = await gameRef.current?.walkTo(locationId, 'walk');
-    if (arrived) setPhase('awaitTag');
+    if (!arrived) return;
+    // NFC 태그가 없는 공간(화장실·거실)은 도착하자마자 퀘스트 창을 연다
+    const hasTag = !!dataRef.current.locations.find((l) => l.id === locationId)?.nfcId;
+    setPhase(hasTag ? 'awaitTag' : 'room');
   }, []);
 
   const handleRoomTap = (locationId: string) => {
@@ -253,6 +260,7 @@ export default function App() {
         />
       )}
       {toastMsg && <div className="toast pop-in">{toastMsg}</div>}
+      {showSplash && <Splash onStart={() => setShowSplash(false)} />}
     </div>
   );
 }

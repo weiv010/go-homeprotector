@@ -1,10 +1,10 @@
-# main 브랜치에 push 하면 GitHub Pages 로 배포한다.
+# 기본 브랜치(또는 main)에 push 하면 GitHub Pages 로 배포한다.
 # 저장소 Settings → Pages → Source 를 "GitHub Actions" 로 설정해 두어야 한다.
 name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [main, claude/vigilant-planck-875dwf]
   workflow_dispatch:
 
 permissions:

@@ -7,6 +7,8 @@ import type { Door, HouseLocation, TilePoint } from '../core/types';
  */
 export class TileGrid {
   readonly roomOf: (string | null)[];
+  /** 물리적인 방 (벽으로 나뉜 단위) */
+  readonly physOf: (string | null)[];
   readonly blocked: boolean[];
   private readonly doorSet = new Set<string>();
 
@@ -17,10 +19,17 @@ export class TileGrid {
     doors: Door[],
   ) {
     this.roomOf = new Array(cols * rows).fill(null);
+    this.physOf = new Array(cols * rows).fill(null);
     this.blocked = new Array(cols * rows).fill(false);
     for (const loc of locations) {
       const r = loc.rect;
-      for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (this.inBounds(x, y)) this.roomOf[y * cols + x] = loc.id;
+      for (let y = r.y; y < r.y + r.h; y++) {
+        for (let x = r.x; x < r.x + r.w; x++) {
+          if (!this.inBounds(x, y)) continue;
+          this.roomOf[y * cols + x] = loc.id;
+          this.physOf[y * cols + x] = loc.room ?? loc.id;
+        }
+      }
       for (const f of loc.furniture) {
         if (f.walkable) continue;
         for (let y = f.y; y < f.y + f.h; y++) for (let x = f.x; x < f.x + f.w; x++) if (this.inBounds(x, y)) this.blocked[y * cols + x] = true;
@@ -39,6 +48,10 @@ export class TileGrid {
     return this.inBounds(x, y) ? this.roomOf[y * this.cols + x] : null;
   }
 
+  phys(x: number, y: number): string | null {
+    return this.inBounds(x, y) ? this.physOf[y * this.cols + x] : null;
+  }
+
   isWalkable(x: number, y: number): boolean {
     return this.inBounds(x, y) && this.room(x, y) !== null && !this.blocked[y * this.cols + x];
   }
@@ -49,7 +62,7 @@ export class TileGrid {
 
   canStep(a: TilePoint, b: TilePoint): boolean {
     if (!this.isWalkable(b.x, b.y)) return false;
-    return this.room(a.x, a.y) === this.room(b.x, b.y) || this.isDoor(a, b);
+    return this.phys(a.x, a.y) === this.phys(b.x, b.y) || this.isDoor(a, b);
   }
 
   /** 시작 칸과 도착 칸을 포함한 경로. 갈 수 없으면 null */

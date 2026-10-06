@@ -5,7 +5,7 @@ import { sprite, type Ctx, type Palette } from './pixel';
 // ─────────────────────────────────────────────────────────────
 // 캐릭터 도트 (16 × 24 px)
 //  k 외곽선  h/H 머리  s/S 피부  e 눈  w 하이라이트  c 볼터치  m 입
-//  t/T 상의  p 바지  f 신발
+//  t/T 상의(흰 티)  o/O 멜빵바지(단추)  p 바지  f 신발  — 타이틀 캐릭터처럼 똥머리 + 멜빵
 // ─────────────────────────────────────────────────────────────
 
 export const CHAR_W = 16;
@@ -56,30 +56,36 @@ const SIDE_HEAD = [
 
 const FRONT_BODY = [
   '..kttttSSttttk..',
-  '.kttttttttttttk.',
-  'kttkttttttttkttk',
-  'kttkttttttttkttk',
-  'kTTkTTTTTTTTkTTk',
-  'ksskttttttttkssk',
+  '.kttottttttottk.',
+  'kttkooooooookttk',
+  'kttkoOooooOokttk',
+  'kTTkooooooookTTk',
+  'ksskooooooookssk',
   '.kk.kppppppk.kk.',
   '....kppppppk....',
 ];
 
 const BACK_BODY = [
   '..kttttttttttk..',
-  ...FRONT_BODY.slice(1),
+  '.kttottttttottk.',
+  'kttkttoootttkttk',
+  'kttkooooooookttk',
+  ...FRONT_BODY.slice(4),
 ];
 
 const SIDE_BODY = [
   '...kttttttttk...',
-  '..kttttttttttk..',
-  '...kttTTtttk....',
-  '...kttTTtttk....',
-  '...kTTssTTTk....',
-  '...kttsstttk....',
+  '..kttttotttttk..',
+  '...kttooooook...',
+  '...kttooOoook...',
+  '...kTTssooook...',
+  '...kttssooook...',
   '...kpppppppk....',
   '...kpppppppk....',
 ];
+
+/** 정수리 똥머리 (스프라이트 위로 3px 튀어나온다) */
+const BUN = ['.kkkk.', 'khhHhk', 'khhhhk', '.khhk.'];
 
 const FRONT_LEGS = [
   ['....kppkkppk....', '....kppkkppk....', '....kffkkffk....', '.....kk..kk.....'],
@@ -113,17 +119,19 @@ const BASE_PALETTE: Palette = {
   w: '#ffffff',
   c: '#ff9aa8',
   m: '#c0546a',
-  t: '#ffb3c7',
-  T: '#ef8fab',
-  p: '#6d74b5',
+  t: '#fffaf0',
+  T: '#e8dcc8',
+  o: '#4f78c2',
+  O: '#ffd866',
+  p: '#3f62a6',
   f: '#5a3a30',
 };
 
 /** 옷 아이템은 팔레트를 바꿔서 표현한다 */
 const OUTFIT_PALETTES: Record<string, Partial<Palette>> = {
-  stripe_shirt: { t: '#ffffff', T: '#4b5a8f' },
-  apron: { t: '#fff3e0', T: '#ffb37a', p: '#7c86c9' },
-  raincoat: { t: '#ffd34d', T: '#e6a92e', p: '#ffd34d' },
+  stripe_shirt: { t: '#ffffff', T: '#4b5a8f', o: '#c9534f', p: '#a8403d' },
+  apron: { o: '#fff3e0', O: '#ff9a5c', T: '#e8d6c0' },
+  raincoat: { t: '#ffd34d', T: '#e6a92e', o: '#ffd34d', O: '#e6a92e', p: '#e6a92e' },
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -246,12 +254,8 @@ export function drawCharacter(
   };
 
   for (const { o } of overlays) if (o.behindWhen?.includes(facing)) drawOverlay(o);
+  sprite(ctx, BUN, pal, x + (flip ? CHAR_W - 5 - BUN[0].length : 5), y - 3, flip);
   sprite(ctx, rows, pal, x, y, flip);
-  if (equipped.outfit === 'apron' && dir === 'down') {
-    // 앞치마 주머니
-    ctx.fillStyle = '#ff9a5c';
-    ctx.fillRect(x + 6, y + 15, 4, 1);
-  }
   for (const { o } of overlays) {
     if (o.behindWhen?.includes(facing)) continue;
     if (o.hideBack && dir === 'up') continue;
@@ -282,4 +286,4 @@ export const CAT_FRAMES = {
   ],
 };
 
-export const CAT_PALETTE: Palette = { k: C.outline, o: '#f5b971', w: '#2b1d24', p: '#ff9aa8' };
+export const CAT_PALETTE: Palette = { k: C.outline, o: '#f3dcbc', w: '#2b1d24', p: '#ff9aa8' };

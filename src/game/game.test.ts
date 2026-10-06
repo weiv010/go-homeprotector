@@ -23,9 +23,14 @@ describe('집 맵', () => {
     }
   });
 
-  it('NFC ID 는 겹치지 않는다', () => {
-    const ids = HOUSE_MAP.locations.map((l) => l.nfcId);
+  it('NFC 태그는 6곳이고 ID 가 겹치지 않는다', () => {
+    const ids = HOUSE_MAP.locations.map((l) => l.nfcId).filter(Boolean);
+    expect(ids).toHaveLength(6);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('맵의 모든 칸은 어떤 공간에 속한다', () => {
+    for (let y = 0; y < HOUSE_MAP.rows; y++) for (let x = 0; x < HOUSE_MAP.cols; x++) expect(grid.room(x, y), `${x},${y}`).not.toBeNull();
   });
 });
 

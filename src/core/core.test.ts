@@ -115,6 +115,13 @@ describe('게임 규칙', () => {
 });
 
 describe('저장 데이터', () => {
+  it('예전 맵(v1) 데이터는 새 맵으로 옮기고 퀘스트 위치를 이어준다', () => {
+    const m = migrate({ version: 1, xp: 5, locations: [{ id: 'living', name: '옛거실', nfcId: 'living_nfc' }], quests: [quest({ location: 'living' })] })!;
+    expect(m.quests[0].location).toBe('hall');
+    expect(m.locations.find((l) => l.id === 'hall')!.name).toBe('거실');
+    expect(m.doors.length).toBeGreaterThan(0);
+  });
+
   it('빠진 필드는 기본값으로 채운다', () => {
     const m = migrate({ xp: 42, quests: [{ ...quest(), affectsHome: undefined }] })!;
     expect(m.xp).toBe(42);

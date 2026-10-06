@@ -5,7 +5,7 @@ import { box, rect, type Ctx } from './pixel';
 // 가구 도트. (x, y, w, h) 는 바닥 위 점유 영역(px).
 // 키가 큰 가구는 영역 위쪽으로 튀어나오게 그린다 (3/4 시점).
 
-type Draw = (ctx: Ctx, x: number, y: number, w: number, h: number, t: number) => void;
+type Draw = (ctx: Ctx, x: number, y: number, w: number, h: number, t: number, color?: string) => void;
 
 const shadow = (ctx: Ctx, x: number, y: number, w: number, h: number) => rect(ctx, x + 1, y + h - 2, w - 1, 2, C.shadow);
 
@@ -15,11 +15,11 @@ const DRAW: Record<FurnitureKind, Draw> = {
     box(ctx, x, y - 6, w, 10, C.woodDark, C.outline); // 헤드보드
     rect(ctx, x + 2, y - 4, w - 4, 2, C.woodMid);
     box(ctx, x + 1, y + 2, w - 2, h - 3, C.cream, C.outline); // 매트리스
-    box(ctx, x + 4, y + 4, w - 8, 8, C.white, C.outline); // 베개
-    rect(ctx, x + 5, y + 5, w - 10, 2, '#f3eef7');
-    box(ctx, x + 1, y + 15, w - 2, h - 16, C.pink, C.outline); // 이불
-    rect(ctx, x + 2, y + 16, w - 4, 2, '#ffc2d1');
-    for (let i = 0; i < 3; i++) rect(ctx, x + 6 + i * 8, y + 24 + (i % 2) * 6, 3, 3, C.white);
+    box(ctx, x + 3, y + 4, w / 2 - 4, 8, C.white, C.outline); // 베개
+    box(ctx, x + w / 2 + 1, y + 4, w / 2 - 4, 8, C.white, C.outline);
+    box(ctx, x + 1, y + 15, w - 2, h - 16, '#fbf4e6', C.outline); // 이불
+    rect(ctx, x + 2, y + 16, w - 4, 2, '#efe1c8');
+    for (let i = 0; i < Math.floor(w / 10); i++) rect(ctx, x + 6 + i * 10, y + 24 + (i % 2) * 6, 4, 1, '#e6d4b6');
   },
   nightstand(ctx, x, y, w, h) {
     shadow(ctx, x, y, w, h);
@@ -54,14 +54,18 @@ const DRAW: Record<FurnitureKind, Draw> = {
     box(ctx, x + 5, y - 2, 6, 9, C.greenDark, C.outline);
     rect(ctx, x + 10 + sway, y - 6, 2, 3, '#a7e3a8');
   },
-  rug(ctx, x, y, w, h) {
+  rug(ctx, x, y, w, h, _t, color) {
+    if (color) {
+      // 단색 러그 (테두리 + 체크 무늬)
+      box(ctx, x + 1, y + 1, w - 2, h - 2, color, C.outline);
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      for (let i = x + 4; i < x + w - 3; i += 6) ctx.fillRect(i, y + 2, 2, h - 4);
+      for (let j = y + 4; j < y + h - 3; j += 6) ctx.fillRect(x + 2, j, w - 4, 2);
+      return;
+    }
     box(ctx, x + 1, y + 1, w - 2, h - 2, '#f6c3a8', C.outline);
     rect(ctx, x + 3, y + 3, w - 6, h - 6, '#ffd9c4');
     for (let i = x + 6; i < x + w - 6; i += 6) rect(ctx, i, y + h / 2 - 1, 3, 2, '#f2a98a');
-    for (let i = x + 2; i < x + w - 2; i += 3) {
-      rect(ctx, i, y, 1, 1, '#e8a888');
-      rect(ctx, i, y + h - 1, 1, 1, '#e8a888');
-    }
   },
   sofa(ctx, x, y, w, h) {
     shadow(ctx, x, y, w, h);
@@ -192,16 +196,69 @@ const DRAW: Record<FurnitureKind, Draw> = {
     rect(ctx, x + 9, y + 8, 5, 1, '#b07a4a');
   },
   catBed(ctx, x, y) {
-    box(ctx, x, y + 3, 16, 12, C.purple, C.outline);
-    rect(ctx, x + 3, y + 6, 10, 6, '#e6dcfb');
+    box(ctx, x, y + 3, 16, 12, '#e39a6b', C.outline);
+    rect(ctx, x + 3, y + 6, 10, 6, '#fbe3c6');
+  },
+  toilet(ctx, x, y) {
+    shadow(ctx, x, y, 16, 16);
+    box(ctx, x + 3, y - 4, 10, 7, C.white, C.outline); // 물탱크
+    box(ctx, x + 2, y + 2, 12, 12, C.white, C.outline);
+    rect(ctx, x + 4, y + 4, 8, 7, '#d9ecf7');
+    rect(ctx, x + 7, y - 3, 2, 1, C.metal);
+  },
+  bathSink(ctx, x, y) {
+    shadow(ctx, x, y, 16, 16);
+    box(ctx, x + 4, y - 10, 8, 9, '#cfe9f7', C.outline); // 거울
+    rect(ctx, x + 5, y - 9, 2, 3, C.white);
+    box(ctx, x + 1, y + 1, 14, 9, C.white, C.outline);
+    rect(ctx, x + 3, y + 3, 10, 5, '#b6d8ee');
+    rect(ctx, x + 7, y - 1, 2, 3, C.metal);
+    rect(ctx, x + 6, y + 10, 4, 4, '#e7e2dc');
+  },
+  clothesRack(ctx, x, y, w) {
+    rect(ctx, x + 2, y - 10, 1, 24, C.woodDeep);
+    rect(ctx, x + w - 3, y - 10, 1, 24, C.woodDeep);
+    rect(ctx, x + 2, y - 10, w - 4, 2, C.woodDark);
+    const colors = ['#3f5f8f', '#6c86b8', '#c9534f', '#f2efe6', '#4a4a5a'];
+    for (let i = 0; i < 5; i++) {
+      const cx = x + 4 + i * ((w - 8) / 5);
+      rect(ctx, cx + 2, y - 9, 1, 2, C.grayDark);
+      box(ctx, cx, y - 7, 5, 13 - (i % 2) * 3, colors[i], C.outline);
+    }
+    rect(ctx, x + 1, y + 13, w - 2, 1, C.woodDeep);
+  },
+  dresser(ctx, x, y, w, h) {
+    shadow(ctx, x, y, w, h);
+    box(ctx, x, y - 6, w, h + 5, C.woodMid, C.outline);
+    for (let i = 0; i < 3; i++) {
+      rect(ctx, x + 1, y - 1 + i * 5, w - 2, 1, C.woodDeep);
+      rect(ctx, x + w / 2 - 1, y + 1 + i * 5, 2, 1, C.yellowDark);
+    }
+  },
+  mirror(ctx, x, y, w, h) {
+    shadow(ctx, x, y, w, h);
+    box(ctx, x + 5, y - 6, 9, h + 4, C.woodDark, C.outline);
+    rect(ctx, x + 7, y - 4, 5, h, '#cfe9f7');
+    rect(ctx, x + 8, y - 3, 1, 8, C.white);
+    rect(ctx, x + 10, y + 6, 1, 4, C.white);
+  },
+  doormat(ctx, x, y, w, h) {
+    box(ctx, x + 2, y + 3, w - 4, h - 5, '#8fae4f', C.outline);
+    for (let i = x + 4; i < x + w - 4; i += 3) rect(ctx, i, y + 5, 1, h - 9, '#7b9a3e');
+  },
+  pouf(ctx, x, y) {
+    rect(ctx, x + 2, y + 13, 12, 2, C.shadow);
+    box(ctx, x + 1, y + 3, 14, 11, C.tan, C.outline);
+    rect(ctx, x + 3, y + 5, 10, 2, '#f3dfb4');
+    rect(ctx, x + 7, y + 7, 2, 2, C.tanDark);
   },
 };
 
 export function drawFurniture(ctx: Ctx, f: Furniture, ox: number, oy: number, t: number): void {
-  DRAW[f.kind](ctx, ox + f.x * 16, oy + f.y * 16, f.w * 16, f.h * 16, t);
+  DRAW[f.kind](ctx, ox + f.x * 16, oy + f.y * 16, f.w * 16, f.h * 16, t, f.color);
 }
 
 /** 바닥에 깔리는 가구 (캐릭터보다 항상 아래) */
 export function isFlat(kind: FurnitureKind): boolean {
-  return kind === 'rug' || kind === 'yogaMat';
+  return kind === 'rug' || kind === 'yogaMat' || kind === 'doormat';
 }
