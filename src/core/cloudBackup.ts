@@ -14,7 +14,21 @@ import type { GameData } from './types';
 export interface CloudConfig {
   url: string;
   anonKey: string;
+  /** anonKey 가 거부되면 대신 써 볼 키 (예: 새 publishable 키 ↔ 예전 anon JWT 키) */
+  fallbackKey?: string;
 }
+
+/**
+ * 이 앱의 기본 Supabase 프로젝트.
+ * 두 키 모두 브라우저에 공개되도록 만들어진 키(publishable / anon)라 코드에 있어도 괜찮다.
+ * (service_role / secret 키는 절대 여기에 넣지 않는다)
+ */
+const DEFAULT_CONFIG: CloudConfig = {
+  url: 'https://ueyevbzcdtlolszjsqva.supabase.co',
+  anonKey: 'sb_publishable_nMwci8Pyg5IVdma5OFHwvQ_spJs6_V_',
+  fallbackKey:
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVleWV2YnpjZHRsb2xzempzcXZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEyNTI5MDcsImV4cCI6MjEwNjgyODkwN30.QJ3N-oPMmMGiq3a5v1fCJzTOIinP4r6nGB3IaklTvSg',
+};
 
 export type BackupState =
   | { kind: 'off' }
@@ -47,7 +61,7 @@ export function normalizeUrl(url: string): string {
   return url.trim().replace(/\/+$/, '').replace(/\/rest\/v1$/, '');
 }
 
-/** 설정 화면에서 입력한 값 → 없으면 빌드 환경변수 */
+/** 설정 화면에서 입력한 값 → 빌드 환경변수 → 기본 프로젝트 */
 export function getCloudConfig(): CloudConfig | null {
   try {
     const saved = JSON.parse(read(CONFIG_KEY) ?? 'null') as CloudConfig | null;
@@ -57,12 +71,18 @@ export function getCloudConfig(): CloudConfig | null {
   }
   const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
   const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-  return url && anonKey ? { url: normalizeUrl(url), anonKey: anonKey.trim() } : null;
+  if (url && anonKey) return { url: normalizeUrl(url), anonKey: anonKey.trim() };
+  return DEFAULT_CONFIG;
 }
 
-export function configSource(): 'app' | 'build' | null {
+export function configSource(): 'app' | 'build' | 'default' {
   if (read(CONFIG_KEY)) return 'app';
-  return import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY ? 'build' : null;
+  return import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY ? 'build' : 'default';
+}
+
+/** 예전 방식(JWT) 키만 Authorization 헤더에 넣는다. 새 publishable 키는 apikey 헤더로만 보낸다 */
+function authHeaders(key: string): Record<string, string> {
+  return key.startsWith('eyJ') ? { apikey: key, Authorization: `Bearer ${key}` } : { apikey: key };
 }
 
 export function setCloudConfig(cfg: CloudConfig | null): void {
@@ -89,19 +109,28 @@ export function setBackupCode(code: string): void {
   write(CODE_KEY, code.trim().toLowerCase());
 }
 
+/** 실제로 통한 키를 기억해 두고 다음부터 먼저 쓴다 */
+const workingKey = new Map<string, string>();
+
 async function rpc<T>(cfg: CloudConfig, fn: string, body: unknown, keepalive = false): Promise<T> {
   const json = JSON.stringify(body);
-  const res = await fetch(`${cfg.url}/rest/v1/rpc/${fn}`, {
-    method: 'POST',
-    // 화면을 닫는 순간에도 전송되도록 keepalive (브라우저 제한 64KB 이하일 때만)
-    keepalive: keepalive && json.length < 60_000,
-    headers: {
-      apikey: cfg.anonKey,
-      Authorization: `Bearer ${cfg.anonKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: json,
-  });
+  const keys = [cfg.anonKey, cfg.fallbackKey].filter((k): k is string => !!k);
+  const remembered = workingKey.get(cfg.url);
+  if (remembered && keys.includes(remembered)) keys.sort((a) => (a === remembered ? -1 : 1));
+  let res!: Response;
+  for (const key of keys) {
+    res = await fetch(`${cfg.url}/rest/v1/rpc/${fn}`, {
+      method: 'POST',
+      // 화면을 닫는 순간에도 전송되도록 keepalive (브라우저 제한 64KB 이하일 때만)
+      keepalive: keepalive && json.length < 60_000,
+      headers: { ...authHeaders(key), 'Content-Type': 'application/json' },
+      body: json,
+    });
+    if (res.status !== 401 && res.status !== 403) {
+      workingKey.set(cfg.url, key);
+      break;
+    }
+  }
   if (!res.ok) {
     let detail = '';
     try {

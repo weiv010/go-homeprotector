@@ -92,7 +92,10 @@ export function CloudBackupSection({ data, replaceData, toast, copy }: Props) {
 
       {state.kind !== 'off' && (
         <>
-          <p className="muted">기록이 바뀔 때마다, 그리고 앱을 열고 닫을 때 Supabase 에 자동으로 올려요.</p>
+          <p className="muted">
+            기록이 바뀔 때마다, 그리고 앱을 열고 닫을 때 Supabase 에 자동으로 올려요.
+            {configSource() === 'default' && ' (기본 연결된 내 Supabase 프로젝트)'}
+          </p>
           <div className="field">
             <span className="field-label">내 백업 코드 (다른 기기에서 불러올 때 필요해요 · 꼭 따로 적어 두세요)</span>
             <code className="tag-url">{code}</code>

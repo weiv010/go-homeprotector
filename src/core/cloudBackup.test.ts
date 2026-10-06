@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AutoBackup, getBackupCode, loadBackup, saveBackup, setCloudConfig } from './cloudBackup';
+import { AutoBackup, getBackupCode, getCloudConfig, loadBackup, saveBackup, setCloudConfig } from './cloudBackup';
 import { createInitialData } from './game';
 
 const store = new Map<string, string>();
@@ -49,6 +49,7 @@ describe('Supabase 자동 백업', () => {
     expect(at).toBe(Date.parse('2026-10-06T05:00:00Z'));
     expect(calls[0].url).toBe('https://demo.supabase.co/rest/v1/rpc/homeprotector_save_backup');
     expect(calls[0].headers.apikey).toBe('anon-key');
+    expect(calls[0].headers.Authorization).toBeUndefined();
     expect(calls[0].body.p_key).toBe('code-1');
     const found = await loadBackup(cfg, 'code-1');
     expect(found?.data).toEqual({ xp: 7 });
@@ -74,13 +75,25 @@ describe('Supabase 자동 백업', () => {
     expect(ab.state).toMatchObject({ kind: 'idle' });
   });
 
-  it('연결 정보가 없으면 아무것도 보내지 않는다', async () => {
-    const calls = mockFetch(() => ({ json: null }));
-    const ab = new AutoBackup();
-    ab.schedule(createInitialData(0));
-    await vi.advanceTimersByTimeAsync(5000);
-    expect(calls).toHaveLength(0);
-    expect(ab.state.kind).toBe('off');
+  it('설정이 없으면 기본 프로젝트로 백업한다', () => {
+    expect(getCloudConfig()?.url).toBe('https://ueyevbzcdtlolszjsqva.supabase.co');
+    expect(new AutoBackup().state.kind).toBe('idle');
+  });
+
+  it('첫 키가 거부되면 예비 키(JWT)로 다시 시도하고, JWT 는 Bearer 로도 보낸다', async () => {
+    const calls = mockFetch((_u, _b) => ({ json: '2026-10-06T05:00:00Z' }));
+    let n = 0;
+    vi.stubGlobal('fetch', async (url: string, init: any) => {
+      calls.push({ url, body: JSON.parse(init.body), headers: init.headers });
+      n++;
+      return n === 1
+        ? { ok: false, status: 401, json: async () => ({ message: 'Invalid API key' }) }
+        : { ok: true, status: 200, json: async () => '2026-10-06T05:00:00Z' };
+    });
+    await saveBackup({ url: 'https://x.supabase.co', anonKey: 'sb_publishable_x', fallbackKey: 'eyJabc' }, 'c', createInitialData(0));
+    expect(calls).toHaveLength(2);
+    expect(calls[0].headers).toEqual({ apikey: 'sb_publishable_x', 'Content-Type': 'application/json' });
+    expect(calls[1].headers.Authorization).toBe('Bearer eyJabc');
   });
 
   it('실패하면 오류 상태가 되고 다음에 다시 시도한다', async () => {
